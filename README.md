@@ -503,3 +503,4 @@ WebRTC is an interesting technology that allows us to go beyond the common compu
 At Acid Tango, we had the opportunity to use WebRTC to add a video chat within the web application of one of our clients. The result was quite satisfactory since users could video call the web admins for inquiries at no cost, just using their browsers, so that functionality was innovative for the average user and added value to their product.
 
 Fortunately, it is not difficult to build your own video chat application nowadays and the technology is there to be explored, it’s up to us to produce new ideas for a society that has normalised online communications.
+"# webrtc-node-app" 
