@@ -1,0 +1,133 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #111;
+    color: white;
+    overflow: hidden;
+    height: 100%;
+}
+
+/* Container chọn phòng */
+#room-selection-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+#room-selection-container input {
+    padding: 10px;
+    font-size: 18px;
+    width: 200px;
+    margin-top: 10px;
+}
+
+#room-selection-container button {
+    padding: 10px 20px;
+    font-size: 18px;
+    margin-left: 10px;
+    cursor: pointer;
+}
+
+/* Container video conference */
+#video-chat-container {
+    display: none;
+    /* ẩn ban đầu */
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    background-color: black;
+}
+
+/* Remote video full màn hình */
+#remote-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background-color: black;
+}
+
+/* Local video overlay */
+#local-video {
+    position: absolute;
+    width: 30%;
+    height: 30%;
+    top: 10px;
+    left: 10px;
+    border: 2px solid white;
+    object-fit: cover;
+    z-index: 10;
+    border-radius: 8px;
+}
+
+/* Bottom bar giống Google Meet */
+.bottom-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 5rem;
+    pointer-events: none;
+    background-color: #212121;
+}
+
+.control-buttons {
+    pointer-events: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    background-color: rgba(33, 33, 33, 0.85);
+    padding: 10px 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.btn {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    border: none;
+    font-size: 22px;
+    background-color: #333;
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.btn:hover {
+    background-color: #444;
+    transform: translateY(-2px);
+}
+
+.btn:active {
+    transform: scale(0.95);
+}
+
+/* Nút rời cuộc gọi */
+.hangup {
+    background-color: #e53935;
+}
+
+.hangup:hover {
+    background-color: #c62828;
+}
+
+/* Responsive */
+@media screen and (max-width: 768px) {
+    #local-video {
+        width: 40%;
+        height: 40%;
+    }
+
+    .btn {
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+    }
+
+    .controls {
+        gap: 10px;
+        padding: 8px 15px;
+    }
+}

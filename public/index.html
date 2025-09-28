@@ -4,75 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WebRTC Video Conference</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #111;
-      color: white;
-    }
-    /* Container chọn phòng */
-    #room-selection-container {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-    }
-
-    #room-selection-container input {
-      padding: 10px;
-      font-size: 18px;
-      width: 200px;
-      margin-top: 10px;
-    }
-
-    #room-selection-container button {
-      padding: 10px 20px;
-      font-size: 18px;
-      margin-left: 10px;
-      cursor: pointer;
-    }
-
-    /* Container video conference */
-    #video-chat-container {
-      display: none; /* ẩn ban đầu */
-      width: 100vw;
-      height: 100vh;
-      position: relative;
-      background-color: black;
-    }
-
-    /* Remote video phủ full màn hình */
-    #remote-video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      background-color: black;
-    }
-
-    /* Local video overlay nhỏ */
-    #local-video {
-      position: absolute;
-      width: 30%;       /* nhỏ hơn, overlay góc */
-      height: 30%;
-      top: 10px;
-      left: 10px;
-      border: 2px solid white;
-      object-fit: cover;
-      z-index: 10;
-    }
-
-    /* Responsive cho màn hình nhỏ */
-    @media screen and (max-width: 768px) {
-      #local-video {
-        width: 40%;
-        height: 40%;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
   <!-- Container chọn phòng -->
   <div id="room-selection-container">
@@ -86,6 +19,15 @@
   <div id="video-chat-container">
     <video id="local-video" autoplay muted></video>
     <video id="remote-video" autoplay></video>
+
+    <!-- Bottom control bar -->
+    <div class="bottom-bar">
+      <div class="control-buttons">
+        <button class="btn" id="mic-button" title="Toggle Mic">🎤</button>
+        <button class="btn" id="cam-button" title="Toggle Camera">📷</button>
+        <button class="btn hangup" id="leave-button" title="Leave Call">📞</button>
+      </div>
+    </div>
   </div>
 
   <!-- Socket.io + client.js -->
