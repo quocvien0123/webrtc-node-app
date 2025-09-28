@@ -1,4 +1,4 @@
-// DOM elements.
+// DOM elements
 const roomSelectionContainer = document.getElementById('room-selection-container')
 const roomInput = document.getElementById('room-input')
 const connectButton = document.getElementById('connect-button')
@@ -7,7 +7,7 @@ const videoChatContainer = document.getElementById('video-chat-container')
 const localVideoComponent = document.getElementById('local-video')
 const remoteVideoComponent = document.getElementById('remote-video')
 
-// Variables.
+// Variables
 const socket = io()
 const mediaConstraints = {
   audio: true,
@@ -15,11 +15,11 @@ const mediaConstraints = {
 }
 let localStream
 let remoteStream
-let isRoomCreator
-let rtcPeerConnection // Connection between the local device and the remote peer.
+let isRoomCreator = false
+let rtcPeerConnection
 let roomId
 
-// Free public STUN servers provided by Google.
+// Free STUN servers
 const iceServers = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -38,27 +38,23 @@ connectButton.addEventListener('click', () => {
 // SOCKET EVENT CALLBACKS =====================================================
 socket.on('room_created', async () => {
   console.log('Socket event callback: room_created')
-
   await setLocalStream(mediaConstraints)
   isRoomCreator = true
 })
 
 socket.on('room_joined', async () => {
   console.log('Socket event callback: room_joined')
-
   await setLocalStream(mediaConstraints)
   socket.emit('start_call', roomId)
 })
 
 socket.on('full_room', () => {
   console.log('Socket event callback: full_room')
-
   alert('The room is full, please try another one')
 })
 
 socket.on('start_call', async () => {
   console.log('Socket event callback: start_call')
-
   if (isRoomCreator) {
     rtcPeerConnection = new RTCPeerConnection(iceServers)
     addLocalTracks(rtcPeerConnection)
@@ -68,29 +64,25 @@ socket.on('start_call', async () => {
   }
 })
 
-socket.on('webrtc_offer', async (event) => {
+socket.on('webrtc_offer', async (sdp) => {
   console.log('Socket event callback: webrtc_offer')
-
   if (!isRoomCreator) {
     rtcPeerConnection = new RTCPeerConnection(iceServers)
     addLocalTracks(rtcPeerConnection)
     rtcPeerConnection.ontrack = setRemoteStream
     rtcPeerConnection.onicecandidate = sendIceCandidate
-    rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event))
+    await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(sdp))
     await createAnswer(rtcPeerConnection)
   }
 })
 
-socket.on('webrtc_answer', (event) => {
+socket.on('webrtc_answer', async (sdp) => {
   console.log('Socket event callback: webrtc_answer')
-
-  rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event))
+  await rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(sdp))
 })
 
 socket.on('webrtc_ice_candidate', (event) => {
   console.log('Socket event callback: webrtc_ice_candidate')
-
-  // ICE candidate configuration.
   const candidate = new RTCIceCandidate({
     sdpMLineIndex: event.label,
     candidate: event.candidate,
@@ -132,12 +124,10 @@ function addLocalTracks(rtcPeerConnection) {
 async function createOffer(rtcPeerConnection) {
   try {
     const sessionDescription = await rtcPeerConnection.createOffer()
-    rtcPeerConnection.setLocalDescription(sessionDescription)
-    
+    await rtcPeerConnection.setLocalDescription(sessionDescription)
     socket.emit('webrtc_offer', {
-      type: 'webrtc_offer',
-      sdp: sessionDescription,
       roomId,
+      sdp: sessionDescription,
     })
   } catch (error) {
     console.error(error)
@@ -147,12 +137,10 @@ async function createOffer(rtcPeerConnection) {
 async function createAnswer(rtcPeerConnection) {
   try {
     const sessionDescription = await rtcPeerConnection.createAnswer()
-    rtcPeerConnection.setLocalDescription(sessionDescription)
-    
+    await rtcPeerConnection.setLocalDescription(sessionDescription)
     socket.emit('webrtc_answer', {
-      type: 'webrtc_answer',
-      sdp: sessionDescription,
       roomId,
+      sdp: sessionDescription,
     })
   } catch (error) {
     console.error(error)
@@ -161,7 +149,7 @@ async function createAnswer(rtcPeerConnection) {
 
 function setRemoteStream(event) {
   remoteVideoComponent.srcObject = event.streams[0]
-  remoteStream = event.stream
+  remoteStream = event.streams[0]
 }
 
 function sendIceCandidate(event) {

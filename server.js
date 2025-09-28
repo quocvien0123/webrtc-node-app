@@ -1,10 +1,19 @@
+const fs = require('fs')
+const https = require('https')
 const express = require('express')
-const http = require('http')
 const { Server } = require('socket.io')
 
 const app = express()
-const server = http.createServer(app)
-const io = new Server(server)
+
+// Đọc chứng chỉ SSL (self-signed)
+const options = {
+  key: fs.readFileSync('key.pem'),
+  cert: fs.readFileSync('cert.pem')
+}
+
+// Tạo HTTPS server
+const httpsServer = https.createServer(options, app)
+const io = new Server(httpsServer)
 
 app.use('/', express.static('public'))
 
@@ -51,6 +60,6 @@ io.on('connection', (socket) => {
 
 // START THE SERVER =================================================================
 const port = process.env.PORT || 3000
-server.listen(port, () => {
-  console.log(`Express server listening on port ${port}`)
+httpsServer.listen(port, () => {
+  console.log(`Server running at ${port}`)
 })

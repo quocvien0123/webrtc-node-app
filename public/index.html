@@ -1,64 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WebRTC</title>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebRTC Video Conference</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #111;
+      color: white;
+    }
+    /* Container chọn phòng */
+    #room-selection-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
 
-    <style type="text/css">
-      body {
-        margin: 0;
-        font-size: 20px;
-      }
+    #room-selection-container input {
+      padding: 10px;
+      font-size: 18px;
+      width: 200px;
+      margin-top: 10px;
+    }
 
-      .centered {
-        position: absolute;
-        top: 40%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-      }
+    #room-selection-container button {
+      padding: 10px 20px;
+      font-size: 18px;
+      margin-left: 10px;
+      cursor: pointer;
+    }
 
-      .video-position {
-        position: absolute;
-        top: 35%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-      }
+    /* Container video conference */
+    #video-chat-container {
+      display: none; /* ẩn ban đầu */
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      background-color: black;
+    }
 
-      #video-chat-container {
-        width: 100%;
-        background-color: black;
-      }
+    /* Remote video phủ full màn hình */
+    #remote-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background-color: black;
+    }
 
+    /* Local video overlay nhỏ */
+    #local-video {
+      position: absolute;
+      width: 30%;       /* nhỏ hơn, overlay góc */
+      height: 30%;
+      top: 10px;
+      left: 10px;
+      border: 2px solid white;
+      object-fit: cover;
+      z-index: 10;
+    }
+
+    /* Responsive cho màn hình nhỏ */
+    @media screen and (max-width: 768px) {
       #local-video {
-        position: absolute;
-        height: 30%;
-        width: 30%;
-        bottom: 0px;
-        left: 0px;
+        width: 40%;
+        height: 40%;
       }
+    }
+  </style>
+</head>
 
-      #remote-video {
-        height: 100%;
-        width: 100%;
-      }
-    </style>
-  </head>
+<body>
+  <!-- Container chọn phòng -->
+  <div id="room-selection-container">
+    <h1>WebRTC Video Conference</h1>
+    <label>Enter Room Number:</label>
+    <input id="room-input" type="text" placeholder="Room ID"/>
+    <button id="connect-button">CONNECT</button>
+  </div>
 
-  <body>
-    <div id="room-selection-container" class="centered">
-      <h1>WebRTC video conference</h1>
-      <label>Enter the number of the room you want to connect</label>
-      <input id="room-input" type="text" />
-      <button id="connect-button">CONNECT</button>
-    </div>
+  <!-- Container video conference -->
+  <div id="video-chat-container">
+    <video id="local-video" autoplay muted></video>
+    <video id="remote-video" autoplay></video>
+  </div>
 
-    <div id="video-chat-container" class="video-position" style="display: none">
-      <video id="local-video" autoplay="autoplay" muted="muted"></video>
-      <video id="remote-video" autoplay="autoplay"></video>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script type="text/javascript" src="client.js"></script>
-  </body>
+  <!-- Socket.io + client.js -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
 </html>
