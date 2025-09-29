@@ -1,92 +1,41 @@
-const socket = io();
+// ========== DOM ELEMENTS ==========
+const roomSelectionContainer = document.getElementById('room-selection-container');
+const roomInput = document.getElementById('room-input');
+const connectButton = document.getElementById('connect-button');
 
-// Elements
-const roomInput = document.getElementById("room-input");
-const connectBtn = document.getElementById("connect-button");
-const roomSelectionContainer = document.getElementById("room-selection-container");
-const videoChatContainer = document.getElementById("video-chat-container");
-
-const localVideo = document.getElementById("local-video");
-const remoteVideo = document.getElementById("remote-video");
+const videoChatContainer = document.getElementById('video-chat-container');
+const localVideo = document.getElementById('local-video');
+const remoteVideo = document.getElementById('remote-video');
 
 const micBtn = document.getElementById("mic-button");
 const camBtn = document.getElementById("cam-button");
 const leaveBtn = document.getElementById("leave-button");
 
+// ========== VARIABLES ==========
+const socket = io({ secure: true }); // kết nối wss
 let localStream;
+let remoteStream;
 let peerConnection;
+let roomId;
+let isRoomCreator = false;
 
-// ICE servers (STUN/TURN)
+// ICE Servers
 const config = {
   iceServers: [
-    { urls: "stun:stun.l.google.com:19302" }
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
   ]
 };
 
-// Khi nhấn Connect
-connectBtn.addEventListener("click", async () => {
-  const roomId = roomInput.value;
-  if (!roomId) return alert("Please enter room id");
-
-  roomSelectionContainer.style.display = "none";
-  videoChatContainer.style.display = "block";
-
-  // Lấy video/audio từ user
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  localVideo.srcObject = localStream;
-
-  // Tạo PeerConnection
-  peerConnection = new RTCPeerConnection(config);
-
-  // Add tracks
-  localStream.getTracks().forEach(track => {
-    peerConnection.addTrack(track, localStream);
-  });
-
-  // Remote stream
-  peerConnection.ontrack = event => {
-    remoteVideo.srcObject = event.streams[0];
-  };
-
-  // ICE Candidate
-  peerConnection.onicecandidate = event => {
-    if (event.candidate) {
-      socket.emit("candidate", { candidate: event.candidate, room: roomId });
-    }
-  };
-
-  // Tham gia room
-  socket.emit("join", roomId);
-
-  // Offer/Answer
-  socket.on("offer", async (offer) => {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    socket.emit("answer", { answer, room: roomId });
-  });
-
-  socket.on("answer", async (answer) => {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-  });
-
-  socket.on("candidate", async (candidate) => {
-    try {
-      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (err) {
-      console.error("Error adding candidate:", err);
-    }
-  });
-
-  // Nếu là người tạo phòng thì tạo Offer
-  socket.on("created", async () => {
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    socket.emit("offer", { offer, room: roomId });
-  });
+// ========== BUTTON EVENTS ==========
+connectButton.addEventListener('click', () => {
+  if (!roomInput.value) return alert("Please enter room id");
+  joinRoom(roomInput.value);
 });
 
-// Nút bật/tắt micro
 micBtn.addEventListener("click", () => {
   if (!localStream) return;
   const audioTrack = localStream.getAudioTracks()[0];
@@ -97,7 +46,6 @@ micBtn.addEventListener("click", () => {
   }
 });
 
-// Nút bật/tắt camera
 camBtn.addEventListener("click", () => {
   if (!localStream) return;
   const videoTrack = localStream.getVideoTracks()[0];
@@ -108,7 +56,6 @@ camBtn.addEventListener("click", () => {
   }
 });
 
-// Nút rời phòng
 leaveBtn.addEventListener("click", () => {
   if (peerConnection) {
     peerConnection.close();
@@ -117,5 +64,117 @@ leaveBtn.addEventListener("click", () => {
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
   }
-  window.location.reload(); // reload để quay lại màn hình chọn phòng
+  window.location.reload();
 });
+
+// ========== SOCKET EVENTS ==========
+socket.on("room_created", async () => {
+  console.log("Room created");
+  await setLocalStream();
+  isRoomCreator = true;
+});
+
+socket.on("room_joined", async () => {
+  console.log("Room joined");
+  await setLocalStream();
+  socket.emit("start_call", roomId);
+});
+
+socket.on("full_room", () => {
+  alert("The room is full, please try another one");
+});
+
+socket.on("start_call", async () => {
+  console.log("Start call");
+  if (isRoomCreator) {
+    createPeerConnection();
+    await createOffer();
+  }
+});
+
+socket.on("webrtc_offer", async (sdp) => {
+  console.log("Got offer");
+  if (!isRoomCreator) {
+    createPeerConnection();
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+    await createAnswer();
+  }
+});
+
+socket.on("webrtc_answer", async (sdp) => {
+  console.log("Got answer");
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+});
+
+socket.on("webrtc_ice_candidate", async (event) => {
+  console.log("Got ICE candidate");
+  try {
+    const candidate = new RTCIceCandidate({
+      sdpMLineIndex: event.label,
+      candidate: event.candidate,
+    });
+    await peerConnection.addIceCandidate(candidate);
+  } catch (err) {
+    console.error("Error adding ice candidate", err);
+  }
+});
+
+// ========== FUNCTIONS ==========
+function joinRoom(room) {
+  roomId = room;
+  socket.emit("join", room);
+  roomSelectionContainer.style.display = "none";
+  videoChatContainer.style.display = "block";
+}
+
+async function setLocalStream() {
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideo.srcObject = localStream;
+  } catch (error) {
+    console.error("Could not get user media", error);
+  }
+}
+
+function createPeerConnection() {
+  peerConnection = new RTCPeerConnection(config);
+  // add local tracks
+  localStream.getTracks().forEach(track => {
+    peerConnection.addTrack(track, localStream);
+  });
+  // remote stream
+  peerConnection.ontrack = event => {
+    remoteStream = event.streams[0];
+    remoteVideo.srcObject = remoteStream;
+  };
+  // ICE candidate
+  peerConnection.onicecandidate = event => {
+    if (event.candidate) {
+      socket.emit("webrtc_ice_candidate", {
+        roomId,
+        label: event.candidate.sdpMLineIndex,
+        candidate: event.candidate.candidate,
+      });
+    }
+  };
+}
+
+async function createOffer() {
+  try {
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit("webrtc_offer", { type: "webrtc_offer", sdp: offer, roomId });
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function createAnswer() {
+  try {
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    socket.emit("webrtc_answer", { type: "webrtc_answer", sdp: answer, roomId });
+  } catch (error) {
+    console.error(error);
+  }
+}
