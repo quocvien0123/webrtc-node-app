@@ -71,23 +71,54 @@ leaveBtn.addEventListener("click", () => {
 
 
 shareScreenBtn.addEventListener("click", async () => {
+  console.log("Share Screen button clicked");
   try {
+    if (!peerConnection) {
+      console.error("PeerConnection is not initialized");
+      return;
+    }
+
+    // Lấy màn hình
     const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    console.log("Screen stream started:", screenStream);
+
     const screenTrack = screenStream.getVideoTracks()[0];
     const sender = peerConnection.getSenders().find(s => s.track.kind === "video");
-    if (sender) {
-      sender.replaceTrack(screenTrack);
+
+    if (!sender) {
+      console.error("No video sender found in PeerConnection");
+      return;
     }
-    screenTrack.onended = () => {
+
+    // Thay thế track video
+    sender.replaceTrack(screenTrack);
+
+    // Hiển thị preview chia sẻ màn hình
+    localVideo.srcObject = screenStream;
+
+    // Renegotiation (bắt buộc để remote thấy track mới)
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit("webrtc_offer", { type: "webrtc_offer", sdp: offer, roomId });
+
+    // Khi dừng chia sẻ màn hình, quay lại camera
+    screenTrack.onended = async () => {
+      console.log("Screen sharing stopped");
       const videoTrack = localStream.getVideoTracks()[0];
       if (sender) {
         sender.replaceTrack(videoTrack);
       }
+      localVideo.srcObject = localStream;
+
+      // Renegotiation lại sau khi quay lại camera
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      socket.emit("webrtc_offer", { type: "webrtc_offer", sdp: offer, roomId });
     };
+
   } catch (err) {
     console.error("Error sharing screen:", err);
   }
-  window.location.reload();
 });
 
 // ========== SOCKET EVENTS ==========
