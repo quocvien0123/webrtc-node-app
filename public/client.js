@@ -10,6 +10,8 @@ const remoteVideo = document.getElementById('remote-video');
 const micBtn = document.getElementById("mic-button");
 const camBtn = document.getElementById("cam-button");
 const leaveBtn = document.getElementById("leave-button");
+const shareScreenBtn = document.getElementById("share-screen-button");
+
 
 // ========== VARIABLES ==========
 const socket = io({ secure: true }); // kết nối wss
@@ -64,6 +66,29 @@ leaveBtn.addEventListener("click", () => {
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
   }
+  window.location.reload(); // reload để quay lại màn hình chọn phòng
+});
+
+
+shareScreenBtn.addEventListener("click", async () => {
+  try {
+    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    const screenTrack = screenStream.getVideoTracks()[0];
+    const sender = peerConnection.getSenders().find(s => s.track.kind === "video");
+    if (sender) {
+      sender.replaceTrack(screenTrack);
+    }
+    screenTrack.onended = () => {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (sender) {
+        sender.replaceTrack(videoTrack);
+      }
+    };
+  } catch (err) {
+    console.error("Error sharing screen:", err);
+  }
+});
+                                                                 
   window.location.reload();
 });
 
