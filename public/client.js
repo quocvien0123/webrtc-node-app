@@ -87,8 +87,6 @@ shareScreenBtn.addEventListener("click", async () => {
   } catch (err) {
     console.error("Error sharing screen:", err);
   }
-});
-                                                                 
   window.location.reload();
 });
 
