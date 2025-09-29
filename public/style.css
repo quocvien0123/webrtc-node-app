@@ -131,3 +131,16 @@ body {
         padding: 8px 15px;
     }
 }
+#share-screen-button {
+    background-color: #007bff;
+    color: white;
+    font-size: 18px;
+    width: auto;
+    height: auto;
+    padding: 10px 20px;
+    border-radius: 5px;
+}
+
+#share-screen-button:hover {
+    background-color: #0056b3;
+}
