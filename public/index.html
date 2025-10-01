@@ -1,17 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WebRTC Video Conference</title>
   <link rel="stylesheet" href="style.css">
+
+  <!-- Load Lucide -->
+  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
+
 <body>
   <!-- Container chọn phòng -->
   <div id="room-selection-container">
     <h1>WebRTC Video Conference</h1>
     <label>Enter Room Number:</label>
-    <input id="room-input" type="text" placeholder="Room ID"/>
+    <input id="room-input" type="text" placeholder="Room ID" />
     <button id="connect-button">CONNECT</button>
   </div>
 
@@ -23,10 +28,18 @@
     <!-- Bottom control bar -->
     <div class="bottom-bar">
       <div class="control-buttons">
-        <button class="btn" id="mic-button" title="Toggle Mic">🎤</button>
-        <button class="btn" id="cam-button" title="Toggle Camera">📷</button>
-        <button class="btn hangup" id="leave-button" title="Leave Call">📞</button>
-        <button class="btn" id="share-screen-button">Share Screen</button>
+        <button class="btn" id="mic-button" title="Toggle Mic">
+          <i data-lucide="mic"></i>
+        </button>
+        <button class="btn" id="cam-button" title="Toggle Camera">
+          <i data-lucide="camera"></i>
+        </button>
+        <button class="btn hangup" id="leave-button" title="Leave Call">
+          <i data-lucide="phone-off"></i>
+        </button>
+        <button class="btn" id="share-screen-button" title="Share Screen">
+          <i data-lucide="screen-share"></i>
+        </button>
       </div>
     </div>
   </div>
@@ -34,5 +47,11 @@
   <!-- Socket.io + client.js -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
+
+  <!-- Kích hoạt Lucide icons -->
+  <script>
+    lucide.createIcons();
+  </script>
 </body>
+
 </html>

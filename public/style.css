@@ -93,6 +93,9 @@ body {
     color: white;
     cursor: pointer;
     transition: background 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn:hover {

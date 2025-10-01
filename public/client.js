@@ -43,8 +43,13 @@ micBtn.addEventListener("click", () => {
   const audioTrack = localStream.getAudioTracks()[0];
   if (audioTrack) {
     audioTrack.enabled = !audioTrack.enabled;
+
     micBtn.style.backgroundColor = audioTrack.enabled ? "#333" : "#e53935";
-    micBtn.textContent = audioTrack.enabled ? "🎤" : "🔇";
+
+    // đổi icon: mic ↔ mic-off
+    const iconName = audioTrack.enabled ? "mic" : "mic-off";
+    micBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+    lucide.createIcons();
   }
 });
 
@@ -53,8 +58,13 @@ camBtn.addEventListener("click", () => {
   const videoTrack = localStream.getVideoTracks()[0];
   if (videoTrack) {
     videoTrack.enabled = !videoTrack.enabled;
+
     camBtn.style.backgroundColor = videoTrack.enabled ? "#333" : "#e53935";
-    camBtn.textContent = videoTrack.enabled ? "📷" : "🚫";
+
+    // đổi icon: camera ↔ camera-off
+    const iconName = videoTrack.enabled ? "camera" : "camera-off";
+    camBtn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+    lucide.createIcons();
   }
 });
 
