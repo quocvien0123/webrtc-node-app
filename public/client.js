@@ -17,6 +17,7 @@ const shareScreenBtn = document.getElementById('share-screen-button');
 // ===== Socket.IO =====
 // Khi trang được phục vụ bởi server (https://<IP>:3000), dùng cùng origin là chắc chắn nhất:
 const socket = io();
+const hasElectronDesktop = Boolean(window.electronAPI?.getDesktopSources);
 
 // ===== State =====
 let localStream;
@@ -80,74 +81,55 @@ leaveBtn.addEventListener('click', () => {
   window.location.reload();
 });
 
-shareScreenBtn.addEventListener("click", async () => {
-  console.log("Share Screen button clicked");
+shareScreenBtn.addEventListener('click', async () => {
+  console.log('[Share] clicked');
   try {
-    if (!peerConnection) {
-      console.error("PeerConnection is not initialized");
-      return;
-    }
+    if (!peerConnection) return console.error('PeerConnection not initialized');
 
-    // Lấy màn hình
-    const screenStream = await navigator.mediaDevices.getDisplayMedia({
-      video: { cursor: 'always' }  // tùy chọn, hiển thị con trỏ
-      // audio: true // nếu muốn chia sẻ audio hệ thống (tùy OS & Chromium)
-    });
+    const screenStream = await getScreenStreamWithPicker();
     const screenTrack = screenStream.getVideoTracks()[0];
-    if (!screenTrack) {
-      console.error("No screen video track");
-      return;
-    }
-
-    // Gợi ý cho encoder: màn hình là detail (giúp nét text)
     try { screenTrack.contentHint = 'detail'; } catch {}
 
-    // Tìm sender video hiện có
-    let sender = peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
-
-    if (sender) {
-      console.log("Replacing camera track with screen track");
-      await sender.replaceTrack(screenTrack);
-    } else {
-      console.log("No video sender found, adding a new transceiver for screen");
-      // Nếu chưa có sender (ví dụ PC vừa tạo nhưng chưa addTrack)
-      const transceiver = peerConnection.addTransceiver(screenTrack, { direction: 'sendonly' });
-      sender = transceiver.sender;
+    // Tìm (hoặc tạo) sender video
+    let sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+    if (!sender) {
+      console.log('No video sender -> addTransceiver(sendrecv)');
+      const trx = peerConnection.addTransceiver('video', { direction: 'sendrecv' });
+      sender = trx.sender;
     }
 
-    // Local preview
+    await sender.replaceTrack(screenTrack);
     localVideo.srcObject = screenStream;
 
-    // Renegotiation (manual fallback – giữ lại để chắc chắn)
+    // (Tuỳ) nếu remote không thấy track mới, vẫn có thể renegotiate:
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-    socket.emit("webrtc_offer", { roomId, sdp: offer });
+    socket.emit('webrtc_offer', { roomId, sdp: peerConnection.localDescription });
 
-    // Khi dừng share màn hình → quay lại camera
     screenTrack.onended = async () => {
-      console.log("Screen sharing stopped");
+      console.log('[Share] stopped -> switch back to camera');
       const camTrack = localStream?.getVideoTracks?.()[0];
-      if (camTrack && sender) {
+      if (camTrack) {
         await sender.replaceTrack(camTrack);
         localVideo.srcObject = localStream;
 
         const offer2 = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer2);
-        socket.emit("webrtc_offer", { roomId, sdp: offer2 });
+        socket.emit('webrtc_offer', { roomId, sdp: peerConnection.localDescription });
       }
     };
-
   } catch (err) {
-    // Lỗi hay gặp: NotAllowedError (user bấm Cancel), NotFoundError, SecurityError…
-    console.error("Error sharing screen:", err && err.name, err && err.message, err);
+    console.error('Share screen error:', err?.name, err?.message, err);
     alert(
-      "Không thể chia sẻ màn hình.\n" +
-      "- Hãy chắc chắn bạn bấm Chọn cửa sổ/Màn hình và bấm Share.\n" +
-      "- Kiểm tra Electron có cấp quyền 'display-capture'.\n" +
-      "- Trang phải chạy https:// hoặc trong Electron đã bật ignore-certificate-errors."
+      'Không thể chia sẻ màn hình.\n' +
+      '- Nếu không thấy danh sách màn hình/cửa sổ: kiểm tra preload.js đã expose desktopCapturer.\n' +
+      "- Electron phải được cấp quyền 'display-capture' (đã thêm trong main.js).\n" +
+      '- Trang phải chạy https:// (hoặc Electron có bật ignore-certificate-errors).\n' +
+      (err?.name ? `\nChi tiết: ${err.name} - ${err.message || ''}` : '')
     );
   }
 });
+
 
 
 // ===== Socket events =====
@@ -310,4 +292,85 @@ async function createOffer() {
   const offer = await peerConnection.createOffer();
   await peerConnection.setLocalDescription(offer);
   socket.emit('webrtc_offer', { roomId, sdp: offer });
+}
+// UI picker: trả về 1 source { id, name, thumbnail }
+async function pickDesktopSource() {
+  if (!hasElectronDesktop) {
+    throw new Error('desktopCapturer bridge is missing (check preload.js)');
+  }
+
+  const sources = await window.electronAPI.getDesktopSources({
+    types: ['screen', 'window'],
+    thumbnailSize: { width: 400, height: 250 },
+  });
+  if (!sources.length) throw new Error('No desktop sources found');
+
+  return new Promise((resolve, reject) => {
+    // Overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'picker-overlay';
+    overlay.innerHTML = `
+      <div class="picker-modal">
+        <h3>Chọn màn hình/cửa sổ để chia sẻ</h3>
+        <div class="picker-grid"></div>
+        <div class="picker-actions">
+          <button class="picker-cancel">Hủy</button>
+        </div>
+      </div>
+    `;
+
+    const grid = overlay.querySelector('.picker-grid');
+    sources.forEach((src) => {
+      const btn = document.createElement('button');
+      btn.className = 'picker-item';
+      btn.title = src.name;
+      btn.innerHTML = `
+        <img src="${src.thumbnail || ''}" alt="${src.name}" />
+        <div class="picker-label">${src.name}</div>
+      `;
+      btn.onclick = () => { document.body.removeChild(overlay); resolve(src); };
+      grid.appendChild(btn);
+    });
+
+    overlay.querySelector('.picker-cancel').onclick = () => {
+      document.body.removeChild(overlay);
+      reject(new Error('User cancelled'));
+    };
+
+    document.body.appendChild(overlay);
+  });
+}
+
+async function getScreenStreamWithPicker() {
+  if (hasElectronDesktop) {
+    const src = await pickDesktopSource();
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        mandatory: {
+          chromeMediaSource: 'desktop',
+          chromeMediaSourceId: src.id,
+          maxWidth: 1920,
+          maxHeight: 1080,
+          maxFrameRate: 30,
+        },
+      },
+    });
+    console.log('[Share] desktopCapturer OK:', src.name);
+    return stream;
+  }
+
+  if (!window.isSecureContext) {
+    throw new Error('Screen sharing cần HTTPS hoặc Electron. Hiện tại trang không chạy trên HTTPS.');
+  }
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    throw new Error('Trình duyệt không hỗ trợ getDisplayMedia');
+  }
+
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: { cursor: 'always', frameRate: 30 },
+    audio: false,
+  });
+  console.log('[Share] getDisplayMedia OK');
+  return stream;
 }
