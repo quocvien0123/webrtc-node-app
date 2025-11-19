@@ -2,6 +2,17 @@
 const { app, BrowserWindow, session } = require('electron');
 const path = require('path');
 
+app.commandLine.appendSwitch('ignore-certificate-errors');
+app.commandLine.appendSwitch('allow-insecure-localhost');
+
+app.whenReady().then(() => {
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
+    const allow = ['media', 'display-capture'];
+    cb(allow.includes(permission));
+  });
+});
+
+
 // Cho phép HTTPS tự ký trong dev
 app.commandLine.appendSwitch('ignore-certificate-errors');
 app.commandLine.appendSwitch('allow-insecure-localhost');
