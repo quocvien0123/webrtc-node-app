@@ -77,6 +77,18 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Reactions: chuyển tiếp emoji ngắn gọn
+  socket.on('reaction', ({ roomId, emoji, ts }) => {
+    try {
+      if (typeof emoji !== 'string') return;
+      const trimmed = emoji.trim();
+      if (!trimmed || trimmed.length > 4) return; // basic sanity
+      socket.to(roomId).emit('reaction', { emoji: trimmed, ts: ts || Date.now(), from: socket.id });
+    } catch (e) {
+      console.error('reaction error', e);
+    }
+  });
+
   socket.on("leave", (roomId) => {
     socket.leave(roomId);
     socket.to(roomId).emit("peer_left");

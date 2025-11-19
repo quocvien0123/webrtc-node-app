@@ -17,6 +17,13 @@ const stopShareBtn = document.getElementById('stop-share-button');
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
 const chatSend = document.getElementById('chat-send');
+const chatToggle = document.getElementById('chat-toggle');
+const chatModal = document.getElementById('chat-modal');
+const chatOverlay = document.getElementById('chat-overlay');
+const chatClose = document.getElementById('chat-close');
+const reactionsBtn = document.getElementById('reactions-button');
+const reactionsPopover = document.getElementById('reactions-popover');
+const reactionsLayer = document.getElementById('reactions-layer');
 
 // ===== Socket.IO =====
 const socket = io();
@@ -43,6 +50,7 @@ let pendingCandidates = [];
 let makingOffer = false;
 let isScreenSharing = false;
 let currentScreenTrack = null;
+let lastReactions = []; // timestamps for rate limiting
 
 // ===== ICE/STUN config =====
 const pcConfig = {
@@ -60,6 +68,13 @@ connectButton.addEventListener('click', () => {
   const id = roomInput.value.trim();
   if (!id) return alert('Please enter room id');
   joinRoom(id);
+});
+
+roomInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    connectButton.click();
+  }
 });
 
 micBtn.addEventListener('click', () => {
@@ -245,6 +260,78 @@ chatInput?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); sendChat(); }
 });
 
+// ===== Chat modal open/close =====
+function openChat() {
+  if (chatOverlay) chatOverlay.style.display = 'block';
+  if (chatModal) chatModal.style.display = 'flex';
+  setTimeout(() => { chatInput?.focus(); }, 50);
+}
+function closeChat() {
+  if (chatOverlay) chatOverlay.style.display = 'none';
+  if (chatModal) chatModal.style.display = 'none';
+}
+chatToggle?.addEventListener('click', openChat);
+chatClose?.addEventListener('click', closeChat);
+chatOverlay?.addEventListener('click', closeChat);
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChat(); });
+
+// ===== Reactions =====
+function toggleReactionsPopover() {
+  if (!reactionsPopover) return;
+  const visible = reactionsPopover.style.display !== 'none';
+  reactionsPopover.style.display = visible ? 'none' : 'flex';
+}
+
+function rateLimitReaction() {
+  const now = Date.now();
+  lastReactions = lastReactions.filter(t => now - t < 3000);
+  if (lastReactions.length >= 5) return false; // max 5 per 3s
+  lastReactions.push(now);
+  return true;
+}
+
+function showReaction(emoji) {
+  if (!reactionsLayer) return;
+  const el = document.createElement('div');
+  el.className = 'reaction-float';
+  el.textContent = emoji;
+  const left = 15 + Math.random() * 70; // 15%..85%
+  el.style.left = left + '%';
+  const rotate = (Math.random() * 20 - 10).toFixed(0);
+  el.style.transform = `translateY(0) rotate(${rotate}deg)`;
+  reactionsLayer.appendChild(el);
+  const cleanup = () => { if (el.parentNode) el.parentNode.removeChild(el); };
+  el.addEventListener('animationend', cleanup);
+  setTimeout(cleanup, 2000);
+}
+
+function emitReaction(emoji) {
+  if (!roomId) return;
+  if (!rateLimitReaction()) return;
+  showReaction(emoji);
+  socket.emit('reaction', { roomId, emoji, ts: Date.now() });
+}
+
+reactionsBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleReactionsPopover();
+});
+
+reactionsPopover?.addEventListener('click', (e) => {
+  const target = e.target;
+  if (target && target.classList.contains('rxn')) {
+    const emoji = target.textContent.trim();
+    emitReaction(emoji);
+    reactionsPopover.style.display = 'none';
+  }
+});
+
+document.addEventListener('click', (e) => {
+  if (!reactionsPopover || reactionsPopover.style.display === 'none') return;
+  const within = reactionsPopover.contains(e.target) || reactionsBtn?.contains(e.target);
+  if (!within) reactionsPopover.style.display = 'none';
+});
+
 // ===== Socket events =====
 socket.on('room_created', async () => {
   console.log('Room created');
@@ -349,6 +436,13 @@ socket.on('peer_left', () => {
   remoteVideo.srcObject = null;
 });
 
+// Show incoming reactions
+socket.on('reaction', ({ emoji }) => {
+  if (typeof emoji === 'string' && emoji.length <= 4) {
+    showReaction(emoji);
+  }
+});
+
 // ===== Functions =====
 // (giữ nguyên phần setLocalStream, createPeerConnection, forceRenegotiate,
 //  pickDesktopSource, getScreenStreamWithPicker như bạn đã dán – mình không lặp lại nữa cho đỡ dài)
@@ -368,6 +462,9 @@ function joinRoom(room) {
   }
   roomSelectionContainer.style.display = 'none';
   videoChatContainer.style.display = 'block';
+  if (chatToggle) chatToggle.style.display = 'inline-flex';
+  // ensure reactions popover hidden on enter
+  if (reactionsPopover) reactionsPopover.style.display = 'none';
 }
 
 async function setLocalStream() {

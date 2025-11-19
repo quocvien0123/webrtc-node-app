@@ -20,11 +20,11 @@
   <div class="app-shell">
     <header class="app-header">
       <div class="logo">
-        <span class="logo-icon">VN</span>
+        <span class="logo-icon">VT</span>
         <span class="logo-text">Meet</span>
       </div>
       <div class="header-right">
-        <span class="badge">Electron App</span>
+        <span class="badge">VT MEET TO A.M</span>
       </div>
     </header>
 
@@ -73,19 +73,46 @@
             <button class="btn" id="stop-share-button" title="Dừng chia sẻ màn hình" style="display:none;">
               <i data-lucide="screen-share-off"></i>
             </button>
+            <button class="btn" id="reactions-button" title="Thả cảm xúc">
+              <i data-lucide="smile"></i>
+            </button>
             <button class="btn hangup" id="leave-button" title="Rời cuộc gọi">
               <i data-lucide="phone-off"></i>
             </button>
           </div>
         </div>
+        <!-- Reactions layer and popover -->
+        <div id="reactions-layer" class="reactions-layer"></div>
+        <div id="reactions-popover" class="reactions-popover" style="display:none;">
+          <button class="rxn">👍</button>
+          <button class="rxn">❤️</button>
+          <button class="rxn">😂</button>
+          <button class="rxn">😮</button>
+          <button class="rxn">👏</button>
+          <button class="rxn">🎉</button>
+        </div>
       </section>
 
-      <!-- Chat area -->
-      <section class="chat-area card">
-        <div class="chat-messages" id="chat-messages"></div>
-        <div class="chat-input-row">
-          <input id="chat-input" type="text" placeholder="Nhắn tin..." />
-          <button id="chat-send" class="primary-btn">Gửi</button>
+      <!-- Chat modal trigger (floating button) -->
+      <button id="chat-toggle" class="chat-fab" title="Chat" style="display:none;">
+        <i data-lucide="message-circle"></i>
+      </button>
+
+      <!-- Chat modal + overlay -->
+      <div id="chat-overlay" class="modal-overlay" style="display:none;"></div>
+      <section id="chat-modal" class="chat-modal card" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="chat-modal-title">
+        <div class="chat-modal-header">
+          <h3 id="chat-modal-title">Chat</h3>
+          <button id="chat-close" class="icon-btn" aria-label="Đóng">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="chat-modal-body">
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-input-row">
+            <input id="chat-input" type="text" placeholder="Nhắn tin..." />
+            <button id="chat-send" class="primary-btn">Gửi</button>
+          </div>
         </div>
       </section>
     </main>
