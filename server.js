@@ -2,29 +2,26 @@ const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const { Server } = require("socket.io");
-const http = require('http');
 const https = require('https');
+const selfsigned = require('selfsigned');
 
 const app = express();
 app.use("/", express.static(path.join(__dirname, "public")));
 
-// Bật HTTPS nếu có biến USE_HTTPS=1 và tồn tại file key/cert
-let proto = 'http';
-let server;
-if (process.env.USE_HTTPS === '1') {
-  try {
-    const key = fs.readFileSync(path.join(__dirname, 'key.pem'));
-    const cert = fs.readFileSync(path.join(__dirname, 'cert.pem'));
-    server = https.createServer({ key, cert }, app);
-    proto = 'https';
-    console.log('[HTTPS] Using key.pem & cert.pem');
-  } catch (e) {
-    console.warn('[HTTPS] Failed loading certs, fallback to HTTP:', e.message);
-    server = http.createServer(app);
-  }
-} else {
-  server = http.createServer(app);
+// Always HTTPS: generate self-signed cert if missing
+const keyPath = path.join(__dirname, 'key.pem');
+const certPath = path.join(__dirname, 'cert.pem');
+if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
+  console.log('[HTTPS] Generating self-signed certificate (key.pem, cert.pem)');
+  const attrs = [{ name: 'commonName', value: process.env.HOST || 'localhost' }];
+  const pems = selfsigned.generate(attrs, { days: 365, algorithm: 'sha256' });
+  fs.writeFileSync(keyPath, pems.private);
+  fs.writeFileSync(certPath, pems.cert);
 }
+const key = fs.readFileSync(keyPath);
+const cert = fs.readFileSync(certPath);
+const server = https.createServer({ key, cert }, app);
+const proto = 'https';
 
 const io = new Server(server, {
   cors: { origin: "*" }

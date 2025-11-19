@@ -3,16 +3,17 @@
   "version": "1.0.0",
   "main": "electron/main.js",
   "scripts": {
-    "server": "USE_HTTP=1 node server.js",
+    "server": "node server.js",
     "electron": "electron .",
-    "start": "concurrently \"npm run server\" \"npm run electron\""
+    "dev": "concurrently \"npm run server\" \"npm run electron\""
   },
   "dependencies": {
     "express": "^4.21.2",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "selfsigned": "^2.1.1"
   },
   "devDependencies": {
-    "electron": "^30.5.1",
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.0",
+    "electron": "^25.9.8"
   }
 }

@@ -14,6 +14,7 @@ const camBtn = document.getElementById('cam-button');
 const leaveBtn = document.getElementById('leave-button');
 const shareScreenBtn = document.getElementById('share-screen-button');
 
+
 // ===== Socket.IO =====
 const socket = io();
 
