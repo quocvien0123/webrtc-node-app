@@ -7,22 +7,36 @@ const { Server } = require('socket.io');
 
 const app = express();
 
-// HTTPS certificate
-const options = {
-  key: fs.readFileSync(path.join(__dirname, 'key.pem')),
-  cert: fs.readFileSync(path.join(__dirname, 'cert.pem'))
-};
-
 // Serve static files
 app.use('/', express.static(path.join(__dirname, 'public')));
 
-// Create HTTPS server
-const httpsServer = https.createServer(options, app);
+// Decide whether to use HTTPS or fallback to HTTP.
+// Set environment variable USE_HTTP=1 to force HTTP (useful for LAN/dev).
+let server;
+let io;
+const PORT = process.env.PORT || 3000;
+const USE_HTTP = process.env.USE_HTTP === '1' || process.env.FORCE_HTTP === '1';
 
-// Socket.IO
-const io = new Server(httpsServer, {
-  cors: { origin: "*" }
-});
+if (!USE_HTTP) {
+  try {
+    // Try to read cert files; fall back to HTTP if reading fails
+    const options = {
+      key: fs.readFileSync(path.join(__dirname, 'key.pem')),
+      cert: fs.readFileSync(path.join(__dirname, 'cert.pem'))
+    };
+    server = https.createServer(options, app);
+    io = new Server(server, { cors: { origin: '*' } });
+    console.log('Using HTTPS server');
+  } catch (err) {
+    console.warn('Could not start HTTPS server (missing/invalid cert). Falling back to HTTP.\n', err.message);
+    server = require('http').createServer(app);
+    io = new Server(server, { cors: { origin: '*' } });
+  }
+} else {
+  server = require('http').createServer(app);
+  io = new Server(server, { cors: { origin: '*' } });
+  console.log('Using HTTP server (forced by USE_HTTP=1)');
+}
 
 // =============================================
 //            SOCKET.IO EVENTS
@@ -67,10 +81,9 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start server on LAN
-const PORT = 3000;
-const HOST = "192.168.1.3";
-
-httpsServer.listen(PORT, HOST, () => {
-  console.log(`HTTPS server running at: https://${HOST}:${PORT}`);
+// Start server on all interfaces so LAN peers can connect
+server.listen(PORT, '0.0.0.0', () => {
+  const proto = server instanceof https.Server ? 'https' : 'http';
+  console.log(`Server running on ${proto}://0.0.0.0:${PORT}`);
+  console.log('If connecting from another machine, open:', `${proto}://<SERVER_IP>:${PORT}`);
 });

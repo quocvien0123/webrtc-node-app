@@ -27,10 +27,12 @@ function createMainWindow() {
     },
   });
 
-  // Wait until the HTTPS server responds before loading to avoid empty page.
-  waitForServerReady('https://192.168.1.3:3000', 500, 20000)
-    .then(() => {
-      mainWindow.loadURL('https://192.168.1.3:3000');
+  // Try to detect a reachable server. Try HTTPS first, then HTTP as fallback.
+  const tryUrls = ['https://192.168.1.3:3000', 'http://192.168.1.3:3000'];
+  waitForAnyServerReady(tryUrls, 500, 20000)
+    .then((url) => {
+      console.log('Loading', url);
+      mainWindow.loadURL(url);
     })
     .catch((err) => {
       console.error('Server not ready, loading local file as fallback:', err);
@@ -62,9 +64,12 @@ function waitForServerReady(url, interval = 500, timeout = 20000) {
     const start = Date.now();
 
     const check = () => {
-      const req = https.get(url, { agent }, (res) => {
+      const isHttps = url.startsWith('https://');
+      const reqFn = isHttps ? https.get : require('http').get;
+      const opts = isHttps ? { agent } : {};
+      const req = reqFn(url, opts, (res) => {
         res.resume();
-        resolve();
+        resolve(url);
       });
       req.on('error', (err) => {
         if (Date.now() - start > timeout) {
@@ -82,22 +87,47 @@ function waitForServerReady(url, interval = 500, timeout = 20000) {
   });
 }
 
-app.whenReady().then(async () => {
-  // If a server is already listening on the target host:port, don't spawn another.
-  const targetUrl = 'https://192.168.1.3:3000';
-  const { hostname, port } = new URL(targetUrl);
+function waitForAnyServerReady(urls, interval = 500, timeout = 20000) {
+  // Try urls in sequence until one responds
+  let i = 0;
+  return new Promise((resolve, reject) => {
+    const tryNext = () => {
+      if (i >= urls.length) return reject(new Error('No server ready'));
+      waitForServerReady(urls[i], interval, timeout)
+        .then((url) => resolve(url))
+        .catch(() => {
+          i += 1;
+          tryNext();
+        });
+    };
+    tryNext();
+  });
+}
 
-  try {
-    const inUse = await isPortInUse(hostname, port, 1000);
-    if (inUse) {
-      console.log(`${hostname}:${port} is already in use — skipping spawn.`);
-    } else {
+app.whenReady().then(async () => {
+  // Only spawn the bundled server when START_SERVER=1 to avoid accidental
+  // spawning on client machines. This lets you run Electron as client-only on
+  // other devices without creating a local server.
+  const shouldStartServer = process.env.START_SERVER === '1';
+  if (shouldStartServer) {
+    // If a server is already listening on the target host:port, don't spawn another.
+    const targetUrl = 'https://192.168.1.3:3000';
+    const { hostname, port } = new URL(targetUrl);
+
+    try {
+      const inUse = await isPortInUse(hostname, port, 1000);
+      if (inUse) {
+        console.log(`${hostname}:${port} is already in use — skipping spawn.`);
+      } else {
+        spawnServer();
+      }
+    } catch (err) {
+      console.error('Error while checking port:', err);
+      // fallback: try to spawn anyway
       spawnServer();
     }
-  } catch (err) {
-    console.error('Error while checking port:', err);
-    // fallback: try to spawn anyway
-    spawnServer();
+  } else {
+    console.log('START_SERVER not set — not spawning server from Electron.');
   }
 
   createMainWindow();

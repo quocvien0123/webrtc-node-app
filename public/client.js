@@ -14,10 +14,18 @@ const shareScreenBtn = document.getElementById("share-screen-button");
 
 
 // ========== VARIABLES ==========
-const socket = io("https://192.168.1.3:3000", {
-  rejectUnauthorized: false,
-  secure: true,
-});
+// ========== VARIABLES ==========
+// Initialize socket.io connection using current origin when available.
+// This ensures correct protocol (http/https) and host when the page is
+// served from the signaling server. If the page is loaded locally (e.g. file://
+// in Electron), fall back to localhost:3000 — change if your server IP differs.
+let socket;
+if (window.location && window.location.origin && window.location.origin !== 'null') {
+  socket = io(window.location.origin);
+} else {
+  // Fallback: try localhost (use USE_HTTP or adjust if your server runs on LAN IP)
+  socket = io('http://localhost:3000');
+}
 // để socket tự theo scheme của trang (http/https)
 let localStream;
 let remoteStream;
