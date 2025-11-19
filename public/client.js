@@ -92,15 +92,12 @@ leaveBtn.addEventListener("click", () => {
     localStream = null;
   }
 
-  socket.emit("leave", roomId); // 🔥 báo cho server biết mình thoát
-
-  // Clear local video
-  localVideo.srcObject = null;
-  remoteVideo.srcObject = null;
-
-  window.location.reload();
-});
-
+  socket.on('leave', (roomId) => {
+    console.log(`Socket leaving room ${roomId}`);
+    socket.leave(roomId);
+    socket.to(roomId).emit('peer_left');
+  });
+  
 
 
 shareScreenBtn.addEventListener("click", async () => {
@@ -179,30 +176,34 @@ socket.on("start_call", async () => {
   }
 });
 
-socket.on("webrtc_offer", async (sdp) => {
-  console.log("Got offer");
+// Xử lý khi nhận answer (quan trọng: creator phải setRemoteDescription(answer))
+socket.on("webrtc_answer", async (sdp) => {
+  console.log("Got answer");
   try {
-    if (!peerConnection) createPeerConnection();
+    if (!peerConnection) {
+      console.warn('Received answer but peerConnection is not initialized — creating one.');
+      createPeerConnection();
+    }
     await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    socket.emit("webrtc_answer", { type: "webrtc_answer", sdp: answer, roomId });
-    // Apply any ICE candidates received before remote description
+    console.log('Remote description (answer) applied');
+
+    // Nếu có ICE candidates đã queue trước đó, áp dụng bây giờ
     if (pendingCandidates.length) {
-      console.log('Applying', pendingCandidates.length, 'pending ICE candidates');
+      console.log('Applying', pendingCandidates.length, 'pending ICE candidates (after answer)');
       for (const c of pendingCandidates) {
         try {
           await peerConnection.addIceCandidate(new RTCIceCandidate(c));
         } catch (e) {
-          console.error('Error adding pending candidate', e);
+          console.error('Error adding pending candidate after answer', e);
         }
       }
       pendingCandidates = [];
     }
   } catch (err) {
-    console.error("Error handling offer:", err);
+    console.error("Error handling answer:", err);
   }
 });
+
 
 
 socket.on("webrtc_ice_candidate", async ({ candidate }) => {
