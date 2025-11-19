@@ -10,10 +10,14 @@ const app = express();
 const LOG_DIR = path.join(__dirname, 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'activity.log');
 fs.mkdirSync(LOG_DIR, { recursive: true });
+
 function writeLog(entry) {
   const line = `[${new Date().toISOString()}] ${entry}\n`;
-  try { fs.appendFileSync(LOG_FILE, line); } catch {}
+  try {
+    fs.appendFileSync(LOG_FILE, line);
+  } catch (_) {}
 }
+
 app.use((req, res, next) => {
   writeLog(`HTTP ${req.method} ${req.url} from ${req.ip || req.connection?.remoteAddress}`);
   next();
@@ -24,7 +28,9 @@ app.use('/', express.static(path.join(__dirname, 'public')));
 
 // ----- HTTPS or HTTP (fallback) -----
 const USE_HTTP = process.env.USE_HTTP === '1' || process.env.FORCE_HTTP === '1';
-let server, io, proto;
+let server;
+let io;
+let proto;
 
 if (!USE_HTTP) {
   const https = require('https');
@@ -51,7 +57,11 @@ if (!USE_HTTP) {
 io = new Server(server, { cors: { origin: '*' } });
 
 io.on('connection', (socket) => {
-  const remote = socket.handshake.address || socket.request.connection.remoteAddress || 'unknown';
+  const remote =
+    socket.handshake.address ||
+    socket.request.connection?.remoteAddress ||
+    'unknown';
+
   console.log('User connected:', socket.id, remote);
   writeLog(`CONNECT socket=${socket.id} from=${remote}`);
 

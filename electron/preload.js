@@ -1,11 +1,22 @@
 // electron/preload.js
-const { contextBridge, desktopCapturer } = require('electron');
+const { contextBridge } = require('electron');
+
+let dc;
+try {
+  dc = require('electron').desktopCapturer;
+} catch (_) {
+  // ignore
+}
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Trả về mảng { id, name, thumbnail } serializable
-  async getDesktopSources(opts) {
-    const sources = await desktopCapturer.getSources(opts);
-    return sources.map(s => ({
+  desktopCapturerAvailable: !!(dc && typeof dc.getSources === 'function'),
+
+  async getDesktopSources(opts = { types: ['screen', 'window'], thumbnailSize: { width: 400, height: 250 } }) {
+    if (!dc || typeof dc.getSources !== 'function') {
+      throw new Error('desktopCapturer unavailable (check Electron version/preload)');
+    }
+    const sources = await dc.getSources(opts);
+    return sources.map((s) => ({
       id: s.id,
       name: s.name,
       thumbnail: s.thumbnail ? s.thumbnail.toDataURL() : null,

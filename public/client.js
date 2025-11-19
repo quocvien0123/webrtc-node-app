@@ -15,9 +15,10 @@ const leaveBtn = document.getElementById('leave-button');
 const shareScreenBtn = document.getElementById('share-screen-button');
 
 // ===== Socket.IO =====
-// Khi trang được phục vụ bởi server (https://<IP>:3000), dùng cùng origin là chắc chắn nhất:
 const socket = io();
-const hasElectronDesktop = Boolean(window.electronAPI?.getDesktopSources);
+
+// Kiểm tra xem Electron preload có expose desktopCapturer không
+const hasElectronDesktop = Boolean(window.electronAPI?.desktopCapturerAvailable);
 
 // ===== State =====
 let localStream;
@@ -27,8 +28,6 @@ let roomId;
 let isRoomCreator = false;
 let pendingCandidates = [];
 let makingOffer = false;
-let ignoreOffer = false;
-let isSettingRemoteAnswerPending = false;
 
 // ===== ICE/STUN config =====
 const pcConfig = {
@@ -43,30 +42,29 @@ const pcConfig = {
 
 // ===== UI events =====
 connectButton.addEventListener('click', () => {
-  if (!roomInput.value) return alert('Please enter room id');
-  joinRoom(roomInput.value.trim());
+  const id = roomInput.value.trim();
+  if (!id) return alert('Please enter room id');
+  joinRoom(id);
 });
 
 micBtn.addEventListener('click', () => {
   if (!localStream) return;
   const audio = localStream.getAudioTracks()[0];
-  if (audio) {
-    audio.enabled = !audio.enabled;
-    micBtn.style.backgroundColor = audio.enabled ? '#333' : '#e53935';
-    micBtn.innerHTML = `<i data-lucide="${audio.enabled ? 'mic' : 'mic-off'}"></i>`;
-    lucide.createIcons();
-  }
+  if (!audio) return;
+  audio.enabled = !audio.enabled;
+  micBtn.style.backgroundColor = audio.enabled ? '#333' : '#e53935';
+  micBtn.innerHTML = `<i data-lucide="${audio.enabled ? 'mic' : 'mic-off'}"></i>`;
+  lucide.createIcons();
 });
 
 camBtn.addEventListener('click', () => {
   if (!localStream) return;
   const video = localStream.getVideoTracks()[0];
-  if (video) {
-    video.enabled = !video.enabled;
-    camBtn.style.backgroundColor = video.enabled ? '#333' : '#e53935';
-    camBtn.innerHTML = `<i data-lucide="${video.enabled ? 'camera' : 'camera-off'}"></i>`;
-    lucide.createIcons();
-  }
+  if (!video) return;
+  video.enabled = !video.enabled;
+  camBtn.style.backgroundColor = video.enabled ? '#333' : '#e53935';
+  camBtn.innerHTML = `<i data-lucide="${video.enabled ? 'camera' : 'camera-off'}"></i>`;
+  lucide.createIcons();
 });
 
 leaveBtn.addEventListener('click', () => {
@@ -87,26 +85,35 @@ leaveBtn.addEventListener('click', () => {
 shareScreenBtn.addEventListener('click', async () => {
   console.log('[Share] clicked');
   try {
-    if (!peerConnection) return console.error('PeerConnection not initialized');
+    if (!peerConnection) {
+      console.error('PeerConnection not initialized');
+      return;
+    }
+
     const screenStream = await getScreenStreamWithPicker();
     const screenTrack = screenStream.getVideoTracks()[0];
     try { screenTrack.contentHint = 'detail'; } catch {}
+
+    // Tìm sender video hiện tại
     let sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
     if (!sender) {
       const trx = peerConnection.addTransceiver('video', { direction: 'sendrecv' });
       sender = trx.sender;
-      console.log('[Share] created transceiver for video');
+      console.log('[Share] created new video transceiver');
     }
+
     await sender.replaceTrack(screenTrack);
     localVideo.srcObject = screenStream;
-    console.log('[Share] replaced camera with screen track; awaiting negotiationneeded');
-    // Force renegotiation if negotiationneeded not fired in time
+    console.log('[Share] replaced camera with screen');
+
+    // Nếu onnegotiationneeded không bắn, mình ép renegotiate
     setTimeout(() => {
-      if (peerConnection.signalingState === 'stable') {
-        console.log('[Share] forcing offer (negotiationneeded not fired)');
+      if (peerConnection && peerConnection.signalingState === 'stable') {
+        console.log('[Share] forcing renegotiate after screen share');
         forceRenegotiate();
       }
     }, 600);
+
     screenTrack.onended = async () => {
       console.log('[Share] ended, restoring camera');
       const camTrack = localStream?.getVideoTracks?.()[0];
@@ -117,11 +124,14 @@ shareScreenBtn.addEventListener('click', async () => {
     };
   } catch (err) {
     console.error('Share screen error:', err);
-    alert('Không thể chia sẻ màn hình.\n- Kiểm tra quyền display-capture (Electron).\n- Dùng HTTPS nếu là trình duyệt.\nChi tiết: ' + (err.message || err.name));
+    alert(
+      'Không thể chia sẻ màn hình.\n' +
+      '- Nếu dùng Electron: kiểm tra preload.js & quyền display-capture.\n' +
+      '- Nếu dùng trình duyệt: cần chạy trên HTTPS.\n\n' +
+      (err.message || err.name || '')
+    );
   }
 });
-
-
 
 // ===== Socket events =====
 socket.on('room_created', async () => {
@@ -150,18 +160,29 @@ socket.on('webrtc_offer', async (sdp) => {
   console.log('Got offer');
   try {
     if (!peerConnection) createPeerConnection();
+
     const offerCollision = makingOffer || peerConnection.signalingState !== 'stable';
-    ignoreOffer = !isRoomCreator && offerCollision;
-    if (ignoreOffer) {
-      console.warn('[Offer] ignored to avoid glare');
-      return;
+    const polite = !isRoomCreator; // room creator = impolite, joiner = polite
+
+    if (offerCollision) {
+      console.warn('[Offer] collision, polite =', polite);
+      if (!polite) {
+        console.warn('[Offer] ignoring (impolite side)');
+        return;
+      }
+      // polite side rollback
+      await Promise.all([
+        peerConnection.setLocalDescription({ type: 'rollback' }),
+        peerConnection.setRemoteDescription(new RTCSessionDescription(sdp)),
+      ]);
+    } else {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
     }
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     socket.emit('webrtc_answer', { roomId, sdp: answer });
 
-    // flush pending candidates (answerer side)
     if (pendingCandidates.length) {
       console.log('Applying', pendingCandidates.length, 'pending ICE (after offer set)');
       for (const c of pendingCandidates) {
@@ -175,14 +196,12 @@ socket.on('webrtc_offer', async (sdp) => {
   }
 });
 
-// ✅ FIX cốt tử: handler cho ANSWER (offerer sẽ setRemoteDescription)
 socket.on('webrtc_answer', async (sdp) => {
   console.log('Got answer');
   try {
     if (!peerConnection) createPeerConnection();
     await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
 
-    // flush pending candidates (offerer side)
     if (pendingCandidates.length) {
       console.log('Applying', pendingCandidates.length, 'pending ICE (after answer set)');
       for (const c of pendingCandidates) {
@@ -255,22 +274,22 @@ function createPeerConnection() {
   // add local tracks
   localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-  // Tự động renegotiate khi track bị thay đổi (hoặc transceiver thay đổi)
-peerConnection.onnegotiationneeded = async () => {
-  if (!peerConnection) return;
-  try {
-    makingOffer = true;
-    console.log('[negotiationneeded] createOffer');
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    socket.emit('webrtc_offer', { roomId, sdp: offer });
-    console.log('[negotiationneeded] offer sent');
-  } catch (e) {
-    console.error('[negotiationneeded] failed:', e);
-  } finally {
-    makingOffer = false;
-  }
-};
+  // renegotiation (screen share vv.)
+  peerConnection.onnegotiationneeded = async () => {
+    if (!peerConnection) return;
+    try {
+      makingOffer = true;
+      console.log('[negotiationneeded] createOffer');
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      socket.emit('webrtc_offer', { roomId, sdp: offer });
+      console.log('[negotiationneeded] offer sent');
+    } catch (e) {
+      console.error('[negotiationneeded] failed:', e);
+    } finally {
+      makingOffer = false;
+    }
+  };
 
   // remote stream
   peerConnection.ontrack = (ev) => {
@@ -279,12 +298,10 @@ peerConnection.onnegotiationneeded = async () => {
     remoteVideo.srcObject = remoteStream;
   };
 
-  // ICE candidate outbound
   peerConnection.onicecandidate = ({ candidate }) => {
     if (candidate) socket.emit('webrtc_ice_candidate', { roomId, candidate });
   };
 
-  // logs
   peerConnection.oniceconnectionstatechange = () => console.log('[ICE]', peerConnection.iceConnectionState);
   peerConnection.onconnectionstatechange = () => console.log('[PC]', peerConnection.connectionState);
   peerConnection.onicegatheringstatechange = () => console.log('[ICE gathering]', peerConnection.iceGatheringState);
@@ -295,6 +312,7 @@ async function createOffer() {
   await peerConnection.setLocalDescription(offer);
   socket.emit('webrtc_offer', { roomId, sdp: offer });
 }
+
 function forceRenegotiate() {
   if (!peerConnection) return;
   if (peerConnection.signalingState !== 'stable') {
@@ -311,7 +329,9 @@ function forceRenegotiate() {
     .catch(e => console.error('[forceRenegotiate] failed', e))
     .finally(() => { makingOffer = false; });
 }
-// UI picker: trả về 1 source { id, name, thumbnail }
+
+// ===== Screen share helpers (Electron + Browser) =====
+
 async function pickDesktopSource() {
   if (!hasElectronDesktop) {
     throw new Error('desktopCapturer bridge is missing (check preload.js)');
@@ -324,7 +344,6 @@ async function pickDesktopSource() {
   if (!sources.length) throw new Error('No desktop sources found');
 
   return new Promise((resolve, reject) => {
-    // Overlay
     const overlay = document.createElement('div');
     overlay.className = 'picker-overlay';
     overlay.innerHTML = `
@@ -360,6 +379,7 @@ async function pickDesktopSource() {
 }
 
 async function getScreenStreamWithPicker() {
+  // Ưu tiên Electron (desktopCapturer)
   if (hasElectronDesktop) {
     const src = await pickDesktopSource();
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -378,6 +398,7 @@ async function getScreenStreamWithPicker() {
     return stream;
   }
 
+  // Fallback: trình duyệt (phải HTTPS)
   if (!window.isSecureContext) {
     throw new Error('Screen sharing cần HTTPS hoặc Electron. Hiện tại trang không chạy trên HTTPS.');
   }
