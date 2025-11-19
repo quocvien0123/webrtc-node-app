@@ -2,12 +2,29 @@ const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const { Server } = require("socket.io");
+const http = require('http');
+const https = require('https');
 
 const app = express();
 app.use("/", express.static(path.join(__dirname, "public")));
 
-let server = require("http").createServer(app);
-let proto = "http";
+// Bật HTTPS nếu có biến USE_HTTPS=1 và tồn tại file key/cert
+let proto = 'http';
+let server;
+if (process.env.USE_HTTPS === '1') {
+  try {
+    const key = fs.readFileSync(path.join(__dirname, 'key.pem'));
+    const cert = fs.readFileSync(path.join(__dirname, 'cert.pem'));
+    server = https.createServer({ key, cert }, app);
+    proto = 'https';
+    console.log('[HTTPS] Using key.pem & cert.pem');
+  } catch (e) {
+    console.warn('[HTTPS] Failed loading certs, fallback to HTTP:', e.message);
+    server = http.createServer(app);
+  }
+} else {
+  server = http.createServer(app);
+}
 
 const io = new Server(server, {
   cors: { origin: "*" }
@@ -51,7 +68,7 @@ io.on("connection", (socket) => {
   });
 });
 
-const PORT = 3000;
-server.listen(PORT, "0.0.0.0", () => {
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on ${proto}://0.0.0.0:${PORT}`);
 });

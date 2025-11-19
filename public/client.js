@@ -250,25 +250,70 @@ function joinRoom(room) {
 }
 
 async function setLocalStream() {
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-      audio: true,
-    });
-    localVideo.srcObject = localStream;
-  } catch (err) {
-    console.warn('getUserMedia high constraints failed:', err);
+  if (!navigator.mediaDevices) {
+    alert('navigator.mediaDevices không tồn tại. Hãy chạy server bằng HTTPS (SET USE_HTTPS=1) hoặc bật flag unsafely-treat-insecure-origin-as-secure trong Electron.');
+    return;
+  }
+  // Chi tiết lỗi để debug
+  const errors = [];
+  async function tryGet(constraints, label) {
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } },
-        audio: true,
-      });
-      localVideo.srcObject = localStream;
-    } catch (err2) {
-      console.error('getUserMedia fallback failed:', err2);
-      alert('Không thể truy cập camera/micro. Hãy đóng các app dùng camera (Zoom/Teams/Discord/Chrome), bật quyền Camera trong Windows Settings và thử lại.');
+      console.log('[getUserMedia attempt]', label, constraints);
+      const s = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('[getUserMedia success]', label);
+      return s;
+    } catch (e) {
+      console.warn('[getUserMedia failed]', label, e.name, e.message);
+      errors.push(label + ': ' + e.name + ' - ' + e.message);
+      return null;
     }
   }
+
+  // Các tập constraint thử dần: cao -> trung bình -> tối giản
+  const attempts = [
+    { label: 'high', c: { video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }, audio: true } },
+    { label: 'medium', c: { video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24 } }, audio: true } },
+    { label: 'low', c: { video: { width: 640, height: 480 }, audio: true } },
+    { label: 'minimal', c: { video: true, audio: true } },
+  ];
+
+  for (const a of attempts) {
+    const s = await tryGet(a.c, a.label);
+    if (s) { localStream = s; break; }
+  }
+
+  // Nếu vẫn chưa có, thử từng thiết bị video cụ thể với constraint tối giản
+  if (!localStream) {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videos = devices.filter(d => d.kind === 'videoinput');
+      console.log('[enumerateDevices] videoinput count:', videos.length);
+      for (const v of videos) {
+        const s = await tryGet({ video: { deviceId: { exact: v.deviceId } }, audio: true }, 'device:' + (v.label || v.deviceId));
+        if (s) { localStream = s; break; }
+      }
+    } catch (e) {
+      console.warn('[enumerateDevices failed]', e);
+      errors.push('enumerateDevices: ' + e.name + ' - ' + e.message);
+    }
+  }
+
+  if (localStream) {
+    localVideo.srcObject = localStream;
+    return;
+  }
+
+  // Thất bại hoàn toàn: cung cấp gợi ý khắc phục (dùng join để an toàn chuỗi nhiều dòng)
+  alert([
+    'Không thể truy cập camera/micro.',
+    'Nguyên nhân phổ biến:',
+    '- Thiết bị đang bị ứng dụng khác chiếm (Zoom/Teams/Discord/Chrome).',
+    '- Quyền Camera/Micro bị tắt trong Windows (Settings > Privacy & security > Camera/Microphone).',
+    '- Trình điều khiển (driver) lỗi hoặc thiết bị ảo.',
+    '- Chạy qua Remote Desktop gây chặn thiết bị.',
+    'Chi tiết cố gắng:',
+    ...errors,
+  ].join('\n'));
 }
 
 function createPeerConnection() {
