@@ -26,6 +26,9 @@ let peerConnection;
 let roomId;
 let isRoomCreator = false;
 let pendingCandidates = [];
+let makingOffer = false;
+let ignoreOffer = false;
+let isSettingRemoteAnswerPending = false;
 
 // ===== ICE/STUN config =====
 const pcConfig = {
@@ -85,48 +88,36 @@ shareScreenBtn.addEventListener('click', async () => {
   console.log('[Share] clicked');
   try {
     if (!peerConnection) return console.error('PeerConnection not initialized');
-
     const screenStream = await getScreenStreamWithPicker();
     const screenTrack = screenStream.getVideoTracks()[0];
     try { screenTrack.contentHint = 'detail'; } catch {}
-
-    // Tìm (hoặc tạo) sender video
     let sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
     if (!sender) {
-      console.log('No video sender -> addTransceiver(sendrecv)');
       const trx = peerConnection.addTransceiver('video', { direction: 'sendrecv' });
       sender = trx.sender;
+      console.log('[Share] created transceiver for video');
     }
-
     await sender.replaceTrack(screenTrack);
     localVideo.srcObject = screenStream;
-
-    // (Tuỳ) nếu remote không thấy track mới, vẫn có thể renegotiate:
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    socket.emit('webrtc_offer', { roomId, sdp: peerConnection.localDescription });
-
-    screenTrack.onended = async () => {
-      console.log('[Share] stopped -> switch back to camera');
-      const camTrack = localStream?.getVideoTracks?.()[0];
-      if (camTrack) {
-        await sender.replaceTrack(camTrack);
-        localVideo.srcObject = localStream;
-
-        const offer2 = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer2);
-        socket.emit('webrtc_offer', { roomId, sdp: peerConnection.localDescription });
+    console.log('[Share] replaced camera with screen track; awaiting negotiationneeded');
+    // Force renegotiation if negotiationneeded not fired in time
+    setTimeout(() => {
+      if (peerConnection.signalingState === 'stable') {
+        console.log('[Share] forcing offer (negotiationneeded not fired)');
+        forceRenegotiate();
       }
+    }, 600);
+    screenTrack.onended = async () => {
+      console.log('[Share] ended, restoring camera');
+      const camTrack = localStream?.getVideoTracks?.()[0];
+      if (!camTrack) return;
+      await sender.replaceTrack(camTrack);
+      localVideo.srcObject = localStream;
+      forceRenegotiate();
     };
   } catch (err) {
-    console.error('Share screen error:', err?.name, err?.message, err);
-    alert(
-      'Không thể chia sẻ màn hình.\n' +
-      '- Nếu không thấy danh sách màn hình/cửa sổ: kiểm tra preload.js đã expose desktopCapturer.\n' +
-      "- Electron phải được cấp quyền 'display-capture' (đã thêm trong main.js).\n" +
-      '- Trang phải chạy https:// (hoặc Electron có bật ignore-certificate-errors).\n' +
-      (err?.name ? `\nChi tiết: ${err.name} - ${err.message || ''}` : '')
-    );
+    console.error('Share screen error:', err);
+    alert('Không thể chia sẻ màn hình.\n- Kiểm tra quyền display-capture (Electron).\n- Dùng HTTPS nếu là trình duyệt.\nChi tiết: ' + (err.message || err.name));
   }
 });
 
@@ -159,6 +150,12 @@ socket.on('webrtc_offer', async (sdp) => {
   console.log('Got offer');
   try {
     if (!peerConnection) createPeerConnection();
+    const offerCollision = makingOffer || peerConnection.signalingState !== 'stable';
+    ignoreOffer = !isRoomCreator && offerCollision;
+    if (ignoreOffer) {
+      console.warn('[Offer] ignored to avoid glare');
+      return;
+    }
     await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
@@ -260,15 +257,20 @@ function createPeerConnection() {
 
   // Tự động renegotiate khi track bị thay đổi (hoặc transceiver thay đổi)
 peerConnection.onnegotiationneeded = async () => {
+  if (!peerConnection) return;
   try {
-    console.log('[negotiationneeded] creating offer');
+    makingOffer = true;
+    console.log('[negotiationneeded] createOffer');
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     socket.emit('webrtc_offer', { roomId, sdp: offer });
+    console.log('[negotiationneeded] offer sent');
   } catch (e) {
     console.error('[negotiationneeded] failed:', e);
+  } finally {
+    makingOffer = false;
   }
-  };
+};
 
   // remote stream
   peerConnection.ontrack = (ev) => {
@@ -292,6 +294,22 @@ async function createOffer() {
   const offer = await peerConnection.createOffer();
   await peerConnection.setLocalDescription(offer);
   socket.emit('webrtc_offer', { roomId, sdp: offer });
+}
+function forceRenegotiate() {
+  if (!peerConnection) return;
+  if (peerConnection.signalingState !== 'stable') {
+    console.log('[forceRenegotiate] signaling not stable, skip');
+    return;
+  }
+  makingOffer = true;
+  peerConnection.createOffer()
+    .then(offer => peerConnection.setLocalDescription(offer))
+    .then(() => {
+      socket.emit('webrtc_offer', { roomId, sdp: peerConnection.localDescription });
+      console.log('[forceRenegotiate] offer sent');
+    })
+    .catch(e => console.error('[forceRenegotiate] failed', e))
+    .finally(() => { makingOffer = false; });
 }
 // UI picker: trả về 1 source { id, name, thumbnail }
 async function pickDesktopSource() {
