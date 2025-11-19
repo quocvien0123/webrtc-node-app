@@ -1,49 +1,34 @@
-// electron/main.js
-const { app, BrowserWindow, session } = require('electron');
-const path = require('path');
+const { app, BrowserWindow, session } = require("electron");
+const path = require("path");
 
-// Cho phép HTTPS self-signed + autoplay
-app.commandLine.appendSwitch('ignore-certificate-errors');
-app.commandLine.appendSwitch('allow-insecure-localhost');
-app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch("ignore-certificate-errors");
+app.commandLine.appendSwitch("allow-insecure-localhost");
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
-// 🔧 ĐẶT IP MÁY CHẠY SERVER TẠI ĐÂY
-const SERVER_URL = process.env.SERVER_URL || 'https://192.168.1.3:3000';
+const SERVER_URL = "http://192.168.1.3:3000";  // sửa IP máy server
 
-let mainWindow = null;
+let mainWindow;
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 720,
-    minWidth: 900,
-    minHeight: 600,
-    backgroundColor: '#050816',
-    titleBarStyle: 'hiddenInset',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
-      contextIsolation: true,
-    },
+      contextIsolation: true
+    }
   });
 
   mainWindow.loadURL(SERVER_URL);
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
 }
 
 app.whenReady().then(() => {
-  // Cho phép camera/mic + share màn hình
-  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
-    const allow = ['media', 'display-capture'];
-    cb(allow.includes(permission));
+  session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => {
+    cb(["media", "display-capture"].includes(perm));
   });
 
   createMainWindow();
 });
 
-app.on('window-all-closed', () => {
-  app.quit();
-});
+app.on("window-all-closed", () => app.quit());
