@@ -21,6 +21,14 @@ const hasDesktopCapturer =
 
 contextBridge.exposeInMainWorld("electronAPI", {
   desktopCapturerAvailable: hasDesktopCapturer,
+  version: process.versions.electron,
+  debugInfo() {
+    return {
+      hasDesktopCapturer,
+      electronVersion: process.versions.electron,
+      nodeVersion: process.versions.node,
+    };
+  },
 
   async getDesktopSources(opts = { types: ["screen", "window"], thumbnailSize: { width: 400, height: 250 } }) {
     if (!hasDesktopCapturer) {
@@ -34,3 +42,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }));
   },
 });
+
+// Log ra console của preload (có thể xem trong devtools: console của renderer) để xác nhận
+try {
+  console.log('[preload] electronVersion=', process.versions.electron, 'desktopCapturerAvailable=', hasDesktopCapturer);
+} catch {}

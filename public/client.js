@@ -20,6 +20,12 @@ const socket = io();
 // Kiểm tra xem Electron preload có expose desktopCapturer không
 const hasElectronDesktop = Boolean(window.electronAPI?.desktopCapturerAvailable);
 
+// Thêm debug chi tiết cho vấn đề overlay không hiển thị
+console.log('[ScreenShare] electronAPI?', window.electronAPI);
+if (window.electronAPI?.debugInfo) {
+  console.log('[ScreenShare] preload debug:', window.electronAPI.debugInfo());
+}
+
 console.log('[DEBUG] hasElectronDesktop =', hasElectronDesktop);
 console.log('[DEBUG] window.electronAPI =', window.electronAPI);
 
@@ -243,3 +249,139 @@ socket.on('peer_left', () => {
 // ===== Functions =====
 // (giữ nguyên phần setLocalStream, createPeerConnection, forceRenegotiate,
 //  pickDesktopSource, getScreenStreamWithPicker như bạn đã dán – mình không lặp lại nữa cho đỡ dài)
+function joinRoom(room) {
+  console.log('[Join] request', room);
+  roomId = room;
+  try {
+    socket.emit('join', room);
+  } catch (e) {
+    console.error('[Join] emit failed', e);
+    alert('Không thể gửi join: ' + (e.message || e));
+    return;
+  }
+  roomSelectionContainer.style.display = 'none';
+  videoChatContainer.style.display = 'block';
+}
+
+async function setLocalStream() {
+  if (!navigator.mediaDevices) {
+    alert('navigator.mediaDevices không tồn tại (context không an toàn?). Kiểm tra HTTPS server hoạt động.');
+    return;
+  }
+  const errors = [];
+  async function tryGet(constraints, label) {
+    try {
+      console.log('[getUserMedia attempt]', label, constraints);
+      const s = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('[getUserMedia success]', label);
+      return s;
+    } catch (e) {
+      console.warn('[getUserMedia failed]', label, e.name, e.message);
+      errors.push(label + ': ' + e.name + ' - ' + e.message);
+      return null;
+    }
+  }
+  const attempts = [
+    { label: 'high', c: { video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }, audio: true } },
+    { label: 'medium', c: { video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24 } }, audio: true } },
+    { label: 'low', c: { video: { width: 640, height: 480 }, audio: true } },
+    { label: 'minimal', c: { video: true, audio: true } },
+  ];
+  for (const a of attempts) {
+    const s = await tryGet(a.c, a.label);
+    if (s) { localStream = s; break; }
+  }
+  if (!localStream) {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videos = devices.filter(d => d.kind === 'videoinput');
+      console.log('[enumerateDevices] videoinput count:', videos.length);
+      for (const v of videos) {
+        const s = await tryGet({ video: { deviceId: { exact: v.deviceId } }, audio: true }, 'device:' + (v.label || v.deviceId));
+        if (s) { localStream = s; break; }
+      }
+    } catch (e) {
+      console.warn('[enumerateDevices failed]', e);
+      errors.push('enumerateDevices: ' + e.name + ' - ' + e.message);
+    }
+  }
+  if (localStream) {
+    localVideo.srcObject = localStream;
+    return;
+  }
+  alert([
+    'Không thể truy cập camera/micro.',
+    'Chi tiết cố gắng:',
+    ...errors,
+  ].join('\n'));
+}
+
+function createPeerConnection() {
+  peerConnection = new RTCPeerConnection(pcConfig);
+  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+  peerConnection.onnegotiationneeded = async () => {
+    if (!peerConnection) return;
+    try {
+      makingOffer = true;
+      console.log('[negotiationneeded] createOffer');
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      socket.emit('webrtc_offer', { roomId, sdp: offer });
+      console.log('[negotiationneeded] offer sent');
+    } catch (e) {
+      console.error('[negotiationneeded] failed:', e);
+    } finally {
+      makingOffer = false;
+    }
+  };
+  peerConnection.ontrack = ev => { remoteStream = ev.streams[0]; remoteVideo.srcObject = remoteStream; };
+  peerConnection.onicecandidate = ({ candidate }) => { if (candidate) socket.emit('webrtc_ice_candidate', { roomId, candidate }); };
+  peerConnection.oniceconnectionstatechange = () => console.log('[ICE]', peerConnection.iceConnectionState);
+  peerConnection.onconnectionstatechange = () => console.log('[PC]', peerConnection.connectionState);
+  peerConnection.onicegatheringstatechange = () => console.log('[ICE gathering]', peerConnection.iceGatheringState);
+}
+
+async function createOffer() {
+  const offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
+  socket.emit('webrtc_offer', { roomId, sdp: offer });
+}
+
+function forceRenegotiate() {
+  if (!peerConnection) return;
+  if (peerConnection.signalingState !== 'stable') { console.log('[forceRenegotiate] signaling not stable'); return; }
+  makingOffer = true;
+  peerConnection.createOffer()
+    .then(o => peerConnection.setLocalDescription(o))
+    .then(() => { socket.emit('webrtc_offer', { roomId, sdp: peerConnection.localDescription }); console.log('[forceRenegotiate] offer sent'); })
+    .catch(e => console.error('[forceRenegotiate] failed', e))
+    .finally(() => { makingOffer = false; });
+}
+
+async function pickDesktopSource() {
+  if (!hasElectronDesktop) throw new Error('desktopCapturer bridge missing');
+  const sources = await window.electronAPI.getDesktopSources({ types: ['screen','window'], thumbnailSize: { width: 400, height: 250 } });
+  if (!sources.length) throw new Error('No desktop sources');
+  return new Promise((resolve, reject) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'picker-overlay';
+    overlay.innerHTML = '<div class="picker-modal"><h3>Chọn màn hình/cửa sổ</h3><div class="picker-grid"></div><div class="picker-actions"><button class="picker-cancel">Hủy</button></div></div>';
+    const grid = overlay.querySelector('.picker-grid');
+    sources.forEach(src => { const btn = document.createElement('button'); btn.className='picker-item'; btn.title=src.name; btn.innerHTML = `<img src="${src.thumbnail || ''}" /><div class="picker-label">${src.name}</div>`; btn.onclick=()=>{ document.body.removeChild(overlay); resolve(src); }; grid.appendChild(btn); });
+    overlay.querySelector('.picker-cancel').onclick = () => { document.body.removeChild(overlay); reject(new Error('User cancelled')); };
+    document.body.appendChild(overlay);
+    console.log('[Picker] overlay appended, sources count =', sources.length);
+  });
+}
+
+async function getScreenStreamWithPicker() {
+  if (hasElectronDesktop) {
+    const src = await pickDesktopSource();
+    const stream = await navigator.mediaDevices.getUserMedia({ audio:false, video:{ mandatory:{ chromeMediaSource:'desktop', chromeMediaSourceId: src.id, maxWidth:1920, maxHeight:1080, maxFrameRate:30 } } });
+    console.log('[Share] desktopCapturer OK', src.name); return stream;
+  }
+  if (!window.isSecureContext) throw new Error('Screen sharing cần HTTPS');
+  if (!navigator.mediaDevices.getDisplayMedia) throw new Error('Trình duyệt không hỗ trợ getDisplayMedia');
+  const stream = await navigator.mediaDevices.getDisplayMedia({ video:{ cursor:'always', frameRate:30 }, audio:false });
+  console.log('[Share] getDisplayMedia OK'); return stream;
+}
