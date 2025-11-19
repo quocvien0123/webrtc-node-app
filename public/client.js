@@ -98,7 +98,9 @@ shareScreenBtn.addEventListener('click', async () => {
       console.error('PeerConnection not initialized');
       return;
     }
-
+    if (!hasElectronDesktop) {
+      console.warn('[Share] desktopCapturerUnavailable -> fallback getDisplayMedia native picker');
+    }
     const screenStream = await getScreenStreamWithPicker();
     const screenTrack = screenStream.getVideoTracks()[0];
     try { screenTrack.contentHint = 'detail'; } catch {}
@@ -381,6 +383,7 @@ async function getScreenStreamWithPicker() {
     console.log('[Share] desktopCapturer OK', src.name); return stream;
   }
   if (!window.isSecureContext) throw new Error('Screen sharing cần HTTPS');
+  console.log('[Share] using browser getDisplayMedia fallback');
   if (!navigator.mediaDevices.getDisplayMedia) throw new Error('Trình duyệt không hỗ trợ getDisplayMedia');
   const stream = await navigator.mediaDevices.getDisplayMedia({ video:{ cursor:'always', frameRate:30 }, audio:false });
   console.log('[Share] getDisplayMedia OK'); return stream;

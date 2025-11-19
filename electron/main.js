@@ -1,5 +1,5 @@
 // electron/main.js
-const { app, BrowserWindow, session } = require("electron");
+const { app, BrowserWindow, session, ipcMain, desktopCapturer } = require("electron");
 const path = require("path");
 
 // Bỏ qua cert tự ký + cho autoplay
@@ -20,6 +20,7 @@ function createMainWindow() {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: false,
     },
   });
 
@@ -28,12 +29,23 @@ function createMainWindow() {
   if (process.env.DEVTOOLS === "1") {
     mainWindow.webContents.openDevTools();
   }
+  console.log('[main] SERVER_URL=', SERVER_URL);
 }
 
 app.whenReady().then(() => {
   // Cho phép camera/mic + share màn hình
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
     cb(["media", "display-capture"].includes(permission));
+  });
+
+  // IPC lấy sources màn hình
+  ipcMain.handle('desktop-sources', async (event, opts) => {
+    try {
+      return await desktopCapturer.getSources(opts || { types: ['screen','window'], thumbnailSize: { width: 400, height: 250 } });
+    } catch (e) {
+      console.error('[IPC] desktop-sources error', e);
+      throw e;
+    }
   });
 
   createMainWindow();
