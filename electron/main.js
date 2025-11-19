@@ -1,13 +1,15 @@
 // electron/main.js
-const { app, BrowserWindow, session } = require('electron');
-const path = require('path');
+const { app, BrowserWindow, session } = require("electron");
+const path = require("path");
 
-app.commandLine.appendSwitch('ignore-certificate-errors');
-app.commandLine.appendSwitch('allow-insecure-localhost');
-app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+// Bỏ qua cert tự ký + cho autoplay
+app.commandLine.appendSwitch("ignore-certificate-errors");
+app.commandLine.appendSwitch("allow-insecure-localhost");
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
-const HOST = process.env.HOST || '192.168.1.3';
-const PORT = process.env.PORT || '3000';
+// 🔧 ĐẶT IP MÁY CHẠY SERVER Ở ĐÂY
+const HOST = process.env.HOST || "192.168.1.3"; // ĐỔI thành IP máy A
+const PORT = process.env.PORT || "3000";
 const SERVER_URL = process.env.SERVER_URL || `https://${HOST}:${PORT}`;
 
 function createMainWindow() {
@@ -15,21 +17,26 @@ function createMainWindow() {
     width: 1200,
     height: 720,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
     },
   });
 
   mainWindow.loadURL(SERVER_URL);
-  if (process.env.DEVTOOLS === '1') mainWindow.webContents.openDevTools();
+
+  if (process.env.DEVTOOLS === "1") {
+    mainWindow.webContents.openDevTools();
+  }
 }
 
 app.whenReady().then(() => {
+  // Cho phép camera/mic + share màn hình
   session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
-    cb(['media', 'display-capture'].includes(permission));
+    cb(["media", "display-capture"].includes(permission));
   });
+
   createMainWindow();
 });
 
-app.on('window-all-closed', () => app.quit());
+app.on("window-all-closed", () => app.quit());

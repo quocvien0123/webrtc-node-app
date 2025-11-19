@@ -1,32 +1,39 @@
+// server.js
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const { Server } = require("socket.io");
-const https = require('https');
-const selfsigned = require('selfsigned');
+const https = require("https");
+const selfsigned = require("selfsigned");
 
 const app = express();
 app.use("/", express.static(path.join(__dirname, "public")));
 
-// Always HTTPS: generate self-signed cert if missing
-const keyPath = path.join(__dirname, 'key.pem');
-const certPath = path.join(__dirname, 'cert.pem');
+// ----- HTTPS: generate self-signed cert if missing -----
+const keyPath = path.join(__dirname, "key.pem");
+const certPath = path.join(__dirname, "cert.pem");
+
 if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
-  console.log('[HTTPS] Generating self-signed certificate (key.pem, cert.pem)');
-  const attrs = [{ name: 'commonName', value: process.env.HOST || 'localhost' }];
-  const pems = selfsigned.generate(attrs, { days: 365, algorithm: 'sha256' });
+  console.log("[HTTPS] Generating self-signed certificate (key.pem, cert.pem)");
+  const attrs = [{ name: "commonName", value: process.env.HOST || "localhost" }];
+  const pems = selfsigned.generate(attrs, {
+    days: 365,
+    algorithm: "sha256",
+  });
   fs.writeFileSync(keyPath, pems.private);
   fs.writeFileSync(certPath, pems.cert);
 }
+
 const key = fs.readFileSync(keyPath);
 const cert = fs.readFileSync(certPath);
 const server = https.createServer({ key, cert }, app);
-const proto = 'https';
+const proto = "https";
 
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: { origin: "*" },
 });
 
+// ----- Socket.IO signalling -----
 io.on("connection", (socket) => {
   socket.on("join", (roomId) => {
     const room = io.sockets.adapter.rooms.get(roomId);
@@ -66,6 +73,7 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on ${proto}://0.0.0.0:${PORT}`);
+  console.log(`Open from LAN peers: ${proto}://<SERVER_IP>:${PORT}`);
 });
