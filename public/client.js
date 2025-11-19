@@ -20,6 +20,9 @@ const socket = io();
 // Kiểm tra xem Electron preload có expose desktopCapturer không
 const hasElectronDesktop = Boolean(window.electronAPI?.desktopCapturerAvailable);
 
+console.log('[DEBUG] hasElectronDesktop =', hasElectronDesktop);
+console.log('[DEBUG] window.electronAPI =', window.electronAPI);
+
 // ===== State =====
 let localStream;
 let remoteStream;
