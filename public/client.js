@@ -13,6 +13,7 @@ const micBtn = document.getElementById('mic-button');
 const camBtn = document.getElementById('cam-button');
 const leaveBtn = document.getElementById('leave-button');
 const shareScreenBtn = document.getElementById('share-screen-button');
+const stopShareBtn = document.getElementById('stop-share-button');
 
 // ===== Socket.IO =====
 const socket = io();
@@ -37,6 +38,8 @@ let roomId;
 let isRoomCreator = false;
 let pendingCandidates = [];
 let makingOffer = false;
+let isScreenSharing = false;
+let currentScreenTrack = null;
 
 // ===== ICE/STUN config =====
 const pcConfig = {
@@ -116,6 +119,11 @@ shareScreenBtn.addEventListener('click', async () => {
     await sender.replaceTrack(screenTrack);
     localVideo.srcObject = screenStream;
     console.log('[Share] replaced camera with screen');
+    isScreenSharing = true;
+    currentScreenTrack = screenTrack;
+    stopShareBtn.style.display = 'inline-flex';
+    shareScreenBtn.style.display = 'none';
+    lucide.createIcons();
 
     // Nếu onnegotiationneeded không bắn, mình ép renegotiate
     setTimeout(() => {
@@ -132,6 +140,11 @@ shareScreenBtn.addEventListener('click', async () => {
       await sender.replaceTrack(camTrack);
       localVideo.srcObject = localStream;
       forceRenegotiate();
+      isScreenSharing = false;
+      currentScreenTrack = null;
+      stopShareBtn.style.display = 'none';
+      shareScreenBtn.style.display = 'inline-flex';
+      lucide.createIcons();
     };
   } catch (err) {
     console.error('Share screen error:', err);
@@ -141,6 +154,17 @@ shareScreenBtn.addEventListener('click', async () => {
       '- Nếu dùng trình duyệt: cần chạy trên HTTPS.\n\n' +
       (err.message || err.name || '')
     );
+  }
+});
+
+// Nút dừng chia sẻ màn hình thủ công
+stopShareBtn.addEventListener('click', async () => {
+  if (!isScreenSharing || !currentScreenTrack) return;
+  console.log('[StopShare] clicked');
+  try {
+    currentScreenTrack.stop(); // sẽ kích hoạt onended handler khôi phục camera
+  } catch (e) {
+    console.warn('[StopShare] track stop error', e);
   }
 });
 
