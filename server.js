@@ -66,6 +66,17 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("webrtc_ice_candidate", { candidate });
   });
 
+  // Chat message: chuyển tiếp cho các client khác trong phòng
+  socket.on('chat_message', ({ roomId, text, ts }) => {
+    try {
+      if (typeof text !== 'string') return;
+      const safe = text.slice(0, 2000); // giới hạn độ dài
+      socket.to(roomId).emit('chat_message', { text: safe, ts: ts || Date.now(), from: socket.id });
+    } catch (e) {
+      console.error('chat_message error', e);
+    }
+  });
+
   socket.on("leave", (roomId) => {
     socket.leave(roomId);
     socket.to(roomId).emit("peer_left");

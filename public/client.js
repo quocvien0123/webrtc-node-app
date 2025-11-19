@@ -14,6 +14,9 @@ const camBtn = document.getElementById('cam-button');
 const leaveBtn = document.getElementById('leave-button');
 const shareScreenBtn = document.getElementById('share-screen-button');
 const stopShareBtn = document.getElementById('stop-share-button');
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const chatSend = document.getElementById('chat-send');
 
 // ===== Socket.IO =====
 const socket = io();
@@ -215,6 +218,33 @@ stopShareBtn.addEventListener('click', async () => {
   }
 });
 
+// ===== Chat =====
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+}
+function appendChatMessage(text, who = 'peer', ts = Date.now()) {
+  const line = document.createElement('div');
+  line.className = `msg ${who}`;
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = escapeHtml(text);
+  line.appendChild(bubble);
+  chatMessages.appendChild(line);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+function sendChat() {
+  const text = (chatInput.value || '').trim();
+  if (!text || !roomId) return;
+  const payload = { roomId, text, ts: Date.now() };
+  appendChatMessage(text, 'me', payload.ts);
+  socket.emit('chat_message', payload);
+  chatInput.value = '';
+}
+chatSend?.addEventListener('click', sendChat);
+chatInput?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); sendChat(); }
+});
+
 // ===== Socket events =====
 socket.on('room_created', async () => {
   console.log('Room created');
@@ -322,6 +352,10 @@ socket.on('peer_left', () => {
 // ===== Functions =====
 // (giữ nguyên phần setLocalStream, createPeerConnection, forceRenegotiate,
 //  pickDesktopSource, getScreenStreamWithPicker như bạn đã dán – mình không lặp lại nữa cho đỡ dài)
+// Nhận tin nhắn chat từ người kia
+socket.on('chat_message', ({ text, ts, from }) => {
+  appendChatMessage(text || '', 'peer', ts || Date.now());
+});
 function joinRoom(room) {
   console.log('[Join] request', room);
   roomId = room;
