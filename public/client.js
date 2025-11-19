@@ -92,12 +92,15 @@ leaveBtn.addEventListener("click", () => {
     localStream = null;
   }
 
-  socket.on('leave', (roomId) => {
-    console.log(`Socket leaving room ${roomId}`);
-    socket.leave(roomId);
-    socket.to(roomId).emit('peer_left');
-  });
-  
+  socket.emit("leave", roomId); // 🔥 báo cho server biết mình thoát
+
+  // Clear local video
+  localVideo.srcObject = null;
+  remoteVideo.srcObject = null;
+
+  window.location.reload();
+});
+
 
 
 shareScreenBtn.addEventListener("click", async () => {
