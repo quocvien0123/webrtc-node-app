@@ -32,6 +32,7 @@ let remoteStream;
 let peerConnection;
 let roomId;
 let isRoomCreator = false;
+let pendingCandidates = [];
 
 // ICE Servers
 const config = {
@@ -186,6 +187,18 @@ socket.on("webrtc_offer", async (sdp) => {
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     socket.emit("webrtc_answer", { type: "webrtc_answer", sdp: answer, roomId });
+    // Apply any ICE candidates received before remote description
+    if (pendingCandidates.length) {
+      console.log('Applying', pendingCandidates.length, 'pending ICE candidates');
+      for (const c of pendingCandidates) {
+        try {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(c));
+        } catch (e) {
+          console.error('Error adding pending candidate', e);
+        }
+      }
+      pendingCandidates = [];
+    }
   } catch (err) {
     console.error("Error handling offer:", err);
   }
@@ -193,23 +206,16 @@ socket.on("webrtc_offer", async (sdp) => {
 
 
 socket.on("webrtc_ice_candidate", async ({ candidate }) => {
-  console.log("Got ICE candidate");
+  console.log("Got ICE candidate", candidate);
   try {
-    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-  } catch (err) {
-    console.error("Error adding ice candidate", err);
-  }
-});
-
-
-socket.on("webrtc_ice_candidate", async (event) => {
-  console.log("Got ICE candidate");
-  try {
-    const candidate = new RTCIceCandidate({
-      sdpMLineIndex: event.label,
-      candidate: event.candidate,
-    });
-    await peerConnection.addIceCandidate(candidate);
+    if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      console.log('Added ICE candidate');
+    } else {
+      // PeerConnection or remote description not ready yet — queue candidate
+      pendingCandidates.push(candidate);
+      console.log('Queued ICE candidate, will add later');
+    }
   } catch (err) {
     console.error("Error adding ice candidate", err);
   }
