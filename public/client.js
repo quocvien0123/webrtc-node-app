@@ -94,6 +94,34 @@ leaveBtn.addEventListener('click', () => {
   window.location.reload();
 });
 
+async function restoreCameraTrack(sender) {
+  // Lấy lại track camera, nếu thiếu thì gọi lại getUserMedia video
+  let camTrack = localStream?.getVideoTracks?.()[0];
+  if (!camTrack || camTrack.readyState !== 'live') {
+    try {
+      console.log('[RestoreCamera] reacquiring camera');
+      const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      if (localStream) {
+        // Thay thế video track cũ trong localStream
+        localStream.getVideoTracks().forEach(t => t.stop());
+        newStream.getVideoTracks().forEach(t => localStream.addTrack(t));
+      } else {
+        localStream = newStream;
+      }
+      camTrack = localStream.getVideoTracks()[0];
+    } catch (e) {
+      console.error('[RestoreCamera] failed getUserMedia', e);
+      return;
+    }
+  }
+  try {
+    await sender.replaceTrack(camTrack);
+    localVideo.srcObject = localStream;
+  } catch (e) {
+    console.error('[RestoreCamera] replaceTrack error', e);
+  }
+}
+
 shareScreenBtn.addEventListener('click', async () => {
   console.log('[Share] clicked');
   try {
@@ -104,7 +132,16 @@ shareScreenBtn.addEventListener('click', async () => {
     if (!hasElectronDesktop) {
       console.warn('[Share] desktopCapturerUnavailable -> fallback getDisplayMedia native picker');
     }
-    const screenStream = await getScreenStreamWithPicker();
+    let screenStream;
+    try {
+      screenStream = await getScreenStreamWithPicker();
+    } catch (e) {
+      if (/User cancelled/i.test(e.message)) {
+        console.log('[Share] user cancelled picker');
+        return; // không alert, không đổi UI
+      }
+      throw e; // sẽ bị catch bên ngoài và alert
+    }
     const screenTrack = screenStream.getVideoTracks()[0];
     try { screenTrack.contentHint = 'detail'; } catch {}
 
@@ -135,10 +172,7 @@ shareScreenBtn.addEventListener('click', async () => {
 
     screenTrack.onended = async () => {
       console.log('[Share] ended, restoring camera');
-      const camTrack = localStream?.getVideoTracks?.()[0];
-      if (!camTrack) return;
-      await sender.replaceTrack(camTrack);
-      localVideo.srcObject = localStream;
+      await restoreCameraTrack(sender);
       forceRenegotiate();
       isScreenSharing = false;
       currentScreenTrack = null;
@@ -162,7 +196,20 @@ stopShareBtn.addEventListener('click', async () => {
   if (!isScreenSharing || !currentScreenTrack) return;
   console.log('[StopShare] clicked');
   try {
-    currentScreenTrack.stop(); // sẽ kích hoạt onended handler khôi phục camera
+    currentScreenTrack.stop();
+    // Trường hợp onended không nổ (hiếm), tự phục hồi sau timeout
+    setTimeout(async () => {
+      if (isScreenSharing) {
+        console.log('[StopShare] fallback restore camera');
+        const sender = peerConnection?.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) await restoreCameraTrack(sender);
+        isScreenSharing = false;
+        currentScreenTrack = null;
+        stopShareBtn.style.display = 'none';
+        shareScreenBtn.style.display = 'inline-flex';
+        lucide.createIcons();
+      }
+    }, 800);
   } catch (e) {
     console.warn('[StopShare] track stop error', e);
   }
