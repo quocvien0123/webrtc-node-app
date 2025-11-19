@@ -238,15 +238,36 @@ async function setLocalStream() {
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
       video: {
-        width: { ideal: 1920 },   // độ phân giải mong muốn
+        width: { ideal: 1920 }, // độ phân giải mong muốn
         height: { ideal: 1080 },
-        frameRate: { ideal: 30 }, // số FPS (khung hình/giây)
+        frameRate: { ideal: 30 }, // số FPS
       },
       audio: true
     });
     localVideo.srcObject = localStream;
   } catch (error) {
-    console.error("Could not get user media", error);
+    console.warn("getUserMedia failed with high constraints:", error);
+    // Thử lại với cấu hình thấp hơn (giảm độ phân giải / fps)
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 15 },
+        },
+        audio: true,
+      });
+      localVideo.srcObject = localStream;
+      console.log('getUserMedia succeeded with lower constraints');
+    } catch (err2) {
+      console.error('Could not get user media (fallback)', err2);
+      // Thông báo cho người dùng kèm hướng dẫn khắc phục
+      alert(
+        'Không thể truy cập camera hoặc tài nguyên phần cứng không đủ.\n' +
+          'Hãy đóng các ứng dụng khác đang sử dụng camera (Teams/Zoom/Chrome),\n' +
+          'kiểm tra quyền Camera trong Settings, cập nhật driver camera, hoặc khởi động lại máy.'
+      );
+    }
   }
 }
 
