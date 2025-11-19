@@ -14,7 +14,11 @@ const shareScreenBtn = document.getElementById("share-screen-button");
 
 
 // ========== VARIABLES ==========
-const socket = io(); // để socket tự theo scheme của trang (http/https)
+const socket = io("https://192.168.1.3:3000", {
+  rejectUnauthorized: false,
+  secure: true,
+});
+// để socket tự theo scheme của trang (http/https)
 let localStream;
 let remoteStream;
 let peerConnection;

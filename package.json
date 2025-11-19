@@ -1,27 +1,25 @@
 {
   "name": "webrtc-node-app",
   "version": "1.0.0",
-  "description": "",
   "main": "electron/main.js",
   "scripts": {
-  "start:dev": "nodemon server.js",
-  "start": "concurrently \"node server.js\" \"electron .\"",
-  "test": "echo \"Error: no test specified\" && exit 1",
-  "format": "prettier --config .prettierrc './**/*.js' --write"
+    "server": "node server.js",
+    "electron": "wait-on https://192.168.1.3:3000 && electron .",
+    "dev": "concurrently \"npm run server\" \"npm run electron\"",
+    "start:dev": "nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier --config .prettierrc './**/*.js' --write"
   },
-
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "express": "^4.21.2",
     "lucide": "^0.544.0",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "concurrently": "^8.2.0",
+    "electron": "^30.0.0",
     "nodemon": "^3.0.2",
     "prettier": "^3.1.1",
-    "electron": "^30.0.0",
-    "concurrently": "^8.2.0"
+    "wait-on": "^7.2.0"
   }
-  
 }
