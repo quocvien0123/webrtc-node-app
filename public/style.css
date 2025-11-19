@@ -1,136 +1,284 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #050816;
+  --bg-card: rgba(15, 23, 42, 0.9);
+  --border: rgba(148, 163, 184, 0.18);
+  --accent: #6366f1;
+  --accent-soft: rgba(99, 102, 241, 0.15);
+  --danger: #ef4444;
+  --text: #e5e7eb;
+  --text-muted: #9ca3af;
+  --radius-xl: 20px;
+  --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.7);
+}
+
 body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background-color: #111;
-    color: white;
-    overflow: hidden;
-    height: 100%;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #1e293b 0, #020617 45%);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
 }
 
-/* Container chọn phòng */
-#room-selection-container {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 16px 24px 24px;
+  gap: 16px;
 }
 
-#room-selection-container input {
-    padding: 10px;
-    font-size: 18px;
-    width: 200px;
-    margin-top: 10px;
+/* Header */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(18px);
 }
 
-#room-selection-container button {
-    padding: 10px 20px;
-    font-size: 18px;
-    margin-left: 10px;
-    cursor: pointer;
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-/* Container video conference */
-#video-chat-container {
-    display: none;
-    /* ẩn ban đầu */
-    width: 100vw;
-    height: 100vh;
-    position: relative;
-    background-color: black;
+.logo-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 0, #22c55e, #22d3ee);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b1120;
 }
 
-/* Remote video full màn hình */
-#remote-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    background-color: black;
+.logo-text {
+  font-weight: 600;
+  letter-spacing: 0.03em;
 }
 
-/* Local video overlay */
-#local-video {
-    position: absolute;
-    width: 30%;
-    height: 30%;
-    top: 10px;
-    left: 10px;
-    border: 2px solid white;
-    object-fit: cover;
-    z-index: 10;
-    border-radius: 8px;
+.header-right .badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(99, 102, 241, 0.16);
+  border: 1px solid rgba(129, 140, 248, 0.5);
+  color: #c7d2fe;
 }
 
-/* Bottom bar giống Google Meet */
+/* Card generic */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(20px);
+}
+
+/* Room selection */
+.room-card {
+  max-width: 500px;
+  margin: 0 auto;
+  margin-top: 32px;
+  padding: 28px 26px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.room-card h1 {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.input-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.input-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+#room-input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+
+#room-input::placeholder {
+  color: #6b7280;
+}
+
+#room-input:focus {
+  border-color: rgba(129, 140, 248, 0.9);
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.5);
+}
+
+.primary-btn {
+  padding: 0 18px;
+  border-radius: 999px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #4f46e5, #22d3ee);
+  color: #f9fafb;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
+  white-space: nowrap;
+}
+
+.primary-btn:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 25px rgba(79, 70, 229, 0.45);
+}
+
+.primary-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.hint {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* Video layout */
+.video-layout {
+  flex: 1;
+  display: none; /* sẽ bật trong JS */
+  padding-top: 4px;
+}
+
+.video-area {
+  height: 100%;
+  padding: 18px 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.video-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 12px;
+  min-height: 0;
+}
+
+.video-wrapper {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  background: radial-gradient(circle at top left, #1d4ed8, #020617);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.video-wrapper video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-label {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+}
+
+/* Bottom control bar */
 .bottom-bar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 5rem;
-    pointer-events: none;
-    background-color: #212121;
+  margin-top: 4px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  display: flex;
+  justify-content: center;
 }
 
 .control-buttons {
-    pointer-events: auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 15px;
-    background-color: rgba(33, 33, 33, 0.85);
-    padding: 10px 20px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  display: flex;
+  gap: 10px;
 }
 
 .btn {
-    width: 55px;
-    height: 55px;
-    border-radius: 50%;
-    border: none;
-    font-size: 22px;
-    background-color: #333;
-    color: white;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: none;
+  background: #111827;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.7);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+}
+
+.btn i {
+  width: 18px;
+  height: 18px;
+  color: #e5e7eb;
 }
 
 .btn:hover {
-    background-color: #444;
-    transform: translateY(-2px);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(30, 64, 175, 0.6);
+  background: #020617;
 }
 
-.btn:active {
-    transform: scale(0.95);
+.btn.hangup {
+  background: var(--danger);
+  box-shadow: 0 10px 25px rgba(239, 68, 68, 0.7);
 }
 
-/* Nút rời cuộc gọi */
-.hangup {
-    background-color: #e53935;
-}
-
-.hangup:hover {
-    background-color: #c62828;
+.btn.hangup:hover {
+  filter: brightness(1.05);
 }
 
 /* Responsive */
-@media screen and (max-width: 768px) {
-    #local-video {
-        width: 40%;
-        height: 40%;
-    }
+@media (max-width: 900px) {
+  .app-shell {
+    padding: 12px;
+  }
 
-    .btn {
-        width: 45px;
-        height: 45px;
-        font-size: 18px;
-    }
+  .video-grid {
+    grid-template-columns: 1fr;
+  }
 
-    .controls {
-        gap: 10px;
-        padding: 8px 15px;
-    }
+  .room-card {
+    margin-top: 16px;
+  }
 }

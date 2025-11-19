@@ -1,47 +1,82 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WebRTC Video Conference</title>
+  <title>VN Meet – Video Conference</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
 
-  <!-- Load Lucide -->
+  <!-- Lucide icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
 <body>
-  <!-- Container chọn phòng -->
-  <div id="room-selection-container">
-    <h1>WebRTC Video Conference</h1>
-    <label>Enter Room Number:</label>
-    <input id="room-input" type="text" placeholder="Room ID" />
-    <button id="connect-button">CONNECT</button>
-  </div>
-
-  <!-- Container video conference -->
-  <div id="video-chat-container">
-    <video id="local-video" autoplay muted></video>
-    <video id="remote-video" autoplay></video>
-
-    <!-- Bottom control bar -->
-    <div class="bottom-bar">
-      <div class="control-buttons">
-        <button class="btn" id="mic-button" title="Toggle Mic">
-          <i data-lucide="mic"></i>
-        </button>
-        <button class="btn" id="cam-button" title="Toggle Camera">
-          <i data-lucide="camera"></i>
-        </button>
-        <button class="btn hangup" id="leave-button" title="Leave Call">
-          <i data-lucide="phone-off"></i>
-        </button>
-        <button class="btn" id="share-screen-button" title="Share Screen">
-          <i data-lucide="screen-share"></i>
-        </button>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="logo">
+        <span class="logo-icon">VN</span>
+        <span class="logo-text">Meet</span>
       </div>
-    </div>
+      <div class="header-right">
+        <span class="badge">Electron App</span>
+      </div>
+    </header>
+
+    <!-- Container chọn phòng -->
+    <main id="room-selection-container" class="card room-card">
+      <h1>WebRTC Video Conference</h1>
+      <p class="subtitle">Nhập mã phòng để bắt đầu cuộc gọi 1–1 bảo mật.</p>
+
+      <label class="input-label" for="room-input">Room ID</label>
+      <div class="input-row">
+        <input id="room-input" type="text" placeholder="Ví dụ: vku-12345" />
+        <button id="connect-button" class="primary-btn">KẾT NỐI</button>
+      </div>
+
+      <p class="hint">
+        Bạn có thể tự đặt room ID, sau đó gửi cho người khác để join cùng phòng.
+      </p>
+    </main>
+
+    <!-- Container video conference -->
+    <main id="video-chat-container" class="video-layout">
+      <section class="video-area card">
+        <div class="video-grid">
+          <div class="video-wrapper">
+            <span class="video-label">Bạn</span>
+            <video id="local-video" autoplay muted playsinline></video>
+          </div>
+          <div class="video-wrapper">
+            <span class="video-label">Đối tác</span>
+            <video id="remote-video" autoplay playsinline></video>
+          </div>
+        </div>
+
+        <!-- Bottom control bar -->
+        <div class="bottom-bar">
+          <div class="control-buttons">
+            <button class="btn" id="mic-button" title="Bật / tắt micro">
+              <i data-lucide="mic"></i>
+            </button>
+            <button class="btn" id="cam-button" title="Bật / tắt camera">
+              <i data-lucide="camera"></i>
+            </button>
+            <button class="btn" id="share-screen-button" title="Chia sẻ màn hình">
+              <i data-lucide="screen-share"></i>
+            </button>
+            <button class="btn hangup" id="leave-button" title="Rời cuộc gọi">
+              <i data-lucide="phone-off"></i>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
 
   <!-- Socket.io + client.js -->

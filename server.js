@@ -1,21 +1,17 @@
-const fs = require('fs')
-const https = require('https')
-const express = require('express')
-const { Server } = require('socket.io')
+const http = require('http');
+const express = require('express');
+const { Server } = require('socket.io');
 
-const app = express()
+const app = express();
 
-// Đọc chứng chỉ SSL (self-signed)
-const options = {
-  key: fs.readFileSync('key.pem'),
-  cert: fs.readFileSync('cert.pem')
-}
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+  },
+});
 
-// Tạo HTTPS server
-const httpsServer = https.createServer(options, app)
-const io = new Server(httpsServer)
-
-app.use('/', express.static('public'))
+app.use('/', express.static('public'));
 
 io.on('connection', (socket) => {
   socket.on('join', (roomId) => {
@@ -56,6 +52,12 @@ io.on('connection', (socket) => {
     console.log(`Broadcasting webrtc_ice_candidate event to peers in room ${event.roomId}`)
     socket.to(event.roomId).emit('webrtc_ice_candidate', event)
   })
+  socket.on("leave", (roomId) => {
+    console.log(`User left room ${roomId}`);
+    socket.leave(roomId);
+    socket.to(roomId).emit("peer_left"); // 🔥 báo cho peer khác
+  });
+
 })
 
 // START THE SERVER =================================================================
