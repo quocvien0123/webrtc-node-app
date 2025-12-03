@@ -8,7 +8,7 @@ app.commandLine.appendSwitch("allow-insecure-localhost");
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
 // 🔧 ĐẶT IP MÁY CHẠY SERVER Ở ĐÂY
-const HOST = process.env.HOST || "192.168.1.3"; // ĐỔI thành IP máy A
+const HOST = process.env.HOST || "172.26.4.90"; // ĐỔI thành IP máy A
 const PORT = process.env.PORT || "3000";
 const SERVER_URL = process.env.SERVER_URL || `https://${HOST}:${PORT}`;
 

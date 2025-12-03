@@ -14,117 +14,42 @@
 
   <!-- Lucide icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="includes.js" defer></script>
 </head>
 
 <body>
   <div class="app-shell">
-    <header class="app-header">
-      <div class="logo">
-        <span class="logo-icon">VT</span>
-        <span class="logo-text">Meet</span>
-      </div>
-      <div class="header-right">
-        <span class="badge">VT MEET TO A.M</span>
-      </div>
-    </header>
+    <!-- Header -->
+    <div data-include="partials/header.html"></div>
+
+    <!-- Container đăng nhập/đăng ký -->
+    <!-- Auth -->
+    <div data-include="partials/auth.html"></div>
 
     <!-- Container chọn phòng -->
-    <main id="room-selection-container" class="card room-card">
-      <h1>WebRTC Video Conference</h1>
-      <p class="subtitle">Nhập mã phòng để bắt đầu cuộc gọi 1–1 bảo mật.</p>
-
-      <label class="input-label" for="room-input">Room ID</label>
-      <div class="input-row">
-        <input id="room-input" type="text" placeholder="Ví dụ: vku-12345" />
-        <button id="connect-button" class="primary-btn">KẾT NỐI</button>
-      </div>
-
-      <p class="hint">
-        Bạn có thể tự đặt room ID, sau đó gửi cho người khác để join cùng phòng.
-      </p>
-    </main>
+    <!-- Room Selection -->
+    <div data-include="partials/room-selection.html"></div>
 
     <!-- Container video conference -->
-    <main id="video-chat-container" class="video-layout">
-      <section class="video-area card">
-        <div class="video-grid">
-          <div class="video-wrapper">
-            <span class="video-label">Bạn</span>
-            <video id="local-video" autoplay muted playsinline></video>
-          </div>
-          <div class="video-wrapper">
-            <span class="video-label">Đối tác</span>
-            <video id="remote-video" autoplay playsinline></video>
-          </div>
-        </div>
-
-        <!-- Bottom control bar -->
-        <div class="bottom-bar">
-          <div class="control-buttons">
-            <button class="btn" id="mic-button" title="Bật / tắt micro">
-              <i data-lucide="mic"></i>
-            </button>
-            <button class="btn" id="cam-button" title="Bật / tắt camera">
-              <i data-lucide="camera"></i>
-            </button>
-            <button class="btn" id="share-screen-button" title="Chia sẻ màn hình">
-              <i data-lucide="screen-share"></i>
-            </button>
-            <button class="btn" id="stop-share-button" title="Dừng chia sẻ màn hình" style="display:none;">
-              <i data-lucide="screen-share-off"></i>
-            </button>
-            <button class="btn" id="reactions-button" title="Thả cảm xúc">
-              <i data-lucide="smile"></i>
-            </button>
-            <button class="btn hangup" id="leave-button" title="Rời cuộc gọi">
-              <i data-lucide="phone-off"></i>
-            </button>
-          </div>
-        </div>
-        <!-- Reactions layer and popover -->
-        <div id="reactions-layer" class="reactions-layer"></div>
-        <div id="reactions-popover" class="reactions-popover" style="display:none;">
-          <button class="rxn">👍</button>
-          <button class="rxn">❤️</button>
-          <button class="rxn">😂</button>
-          <button class="rxn">😮</button>
-          <button class="rxn">👏</button>
-          <button class="rxn">🎉</button>
-        </div>
-      </section>
-
-      <!-- Chat modal trigger (floating button) -->
-      <button id="chat-toggle" class="chat-fab" title="Chat" style="display:none;">
-        <i data-lucide="message-circle"></i>
-      </button>
-
-      <!-- Chat modal + overlay -->
-      <div id="chat-overlay" class="modal-overlay" style="display:none;"></div>
-      <section id="chat-modal" class="chat-modal card" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="chat-modal-title">
-        <div class="chat-modal-header">
-          <h3 id="chat-modal-title">Chat</h3>
-          <button id="chat-close" class="icon-btn" aria-label="Đóng">
-            <i data-lucide="x"></i>
-          </button>
-        </div>
-        <div class="chat-modal-body">
-          <div class="chat-messages" id="chat-messages"></div>
-          <div class="chat-input-row">
-            <input id="chat-input" type="text" placeholder="Nhắn tin..." />
-            <button id="chat-send" class="primary-btn">Gửi</button>
-          </div>
-        </div>
-      </section>
-    </main>
+    <!-- Video Chat -->
+    <div data-include="partials/video-chat.html"></div>
   </div>
 
   <!-- Socket.io + client.js -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
 
-  <!-- Kích hoạt Lucide icons -->
+  <!-- Kích hoạt Lucide icons sau khi include xong -->
   <script>
-    lucide.createIcons();
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.__includesReady) {
+        window.__includesReady.then(() => {
+          lucide.createIcons();
+        });
+      } else {
+        lucide.createIcons();
+      }
+    });
   </script>
 </body>
 
