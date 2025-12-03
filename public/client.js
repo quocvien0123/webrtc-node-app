@@ -1,14 +1,29 @@
-// public/client.js
+// client.js
+// ==========================================
+// WEBRTC VIDEO CALL CLIENT
+// ==========================================
+// File này xử lý:
+// 1. Authentication (login/register/verify)
+// 2. WebRTC peer connections (group call)
+// 3. Media streams (camera, mic, screen share)
+// 4. Socket.IO signaling
+// 5. Chat, reactions, recording
+// ==========================================
 
-// Wait for includes to load before initializing
+// ===== INITIALIZATION WRAPPER =====
+// Đợi HTML partials load xong trước khi init
+// (partials được load bởi includes.js)
 async function initApp() {
-  // Wait for HTML partials to load
+  // Chờ window.__includesReady promise
   if (window.__includesReady) {
     await window.__includesReady;
   }
 
-// ===== DOM =====
-// Auth elements
+// ===== DOM ELEMENTS =====
+// Lấy reference đến các elements trong HTML
+// (Phải làm sau khi partials đã load)
+
+// --- Auth elements ---
 const authContainer = document.getElementById('auth-container');
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
@@ -19,17 +34,17 @@ const registerError = document.getElementById('register-error');
 const userInfo = document.getElementById('user-info');
 const logoutButton = document.getElementById('logout-button');
 
-// Room selection
+// --- Room selection ---
 const roomSelectionContainer = document.getElementById('room-selection-container');
 const roomInput = document.getElementById('room-input');
 const connectButton = document.getElementById('connect-button');
 
-// Video elements
+// --- Video elements ---
 const videoChatContainer = document.getElementById('video-chat-container');
 const videosContainer = document.getElementById('videos-container');
 const localVideo = document.getElementById('local-video');
 
-// Controls
+// --- Controls ---
 const micBtn = document.getElementById('mic-button');
 const camBtn = document.getElementById('cam-button');
 const leaveBtn = document.getElementById('leave-button');
@@ -48,17 +63,23 @@ const reactionsBtn = document.getElementById('reactions-button');
 const reactionsPopover = document.getElementById('reactions-popover');
 const reactionsLayer = document.getElementById('reactions-layer');
 
-// ===== Auth State =====
-let currentUser = null;
-let authToken = null;
+// ===== GLOBAL STATE =====
+// Lưu trạng thái của ứng dụng
 
-// ===== Socket.IO =====
+// --- Auth state ---
+let currentUser = null;  // Thông tin user hiện tại {id, username, email}
+let authToken = null;    // JWT token để xác thực
+
+// ===== SOCKET.IO CONNECTION =====
+// Kết nối WebSocket với server để signaling
 const socket = io();
 
-// Kiểm tra xem Electron preload có expose desktopCapturer không
+// ===== ELECTRON DETECTION =====
+// Kiểm tra xem có chạy trong Electron không
+// (Electron có desktopCapturer API để chọn màn hình)
 const hasElectronDesktop = Boolean(window.electronAPI?.desktopCapturerAvailable);
 
-// Thêm debug chi tiết cho vấn đề overlay không hiển thị
+// Debug logs cho Electron
 console.log('[ScreenShare] electronAPI?', window.electronAPI);
 if (window.electronAPI?.debugInfo) {
   console.log('[ScreenShare] preload debug:', window.electronAPI.debugInfo());
@@ -67,27 +88,32 @@ if (window.electronAPI?.debugInfo) {
 console.log('[DEBUG] hasElectronDesktop =', hasElectronDesktop);
 console.log('[DEBUG] window.electronAPI =', window.electronAPI);
 
-// ===== State =====
-let localStream;
-let roomId;
-let isScreenSharing = false;
-let currentScreenTrack = null;
-let screenShareVideoElement = null; // Video element cho màn hình chia sẻ
-let lastReactions = []; // timestamps for rate limiting
+// ===== WEBRTC STATE =====
+// Quản lý media streams và peer connections
 
-// Group call state
+let localStream;                // MediaStream của camera/mic local
+let roomId;                     // ID phòng hiện tại
+let isScreenSharing = false;    // Đang chia sẻ màn hình?
+let currentScreenTrack = null;  // Track video của màn hình đang share
+let screenShareVideoElement = null; // Video element hiển thị màn hình
+let lastReactions = [];         // Timestamps của reactions (rate limiting)
+
+// ===== GROUP CALL STATE =====
+// Lưu trữ thông tin cho group call (nhiều người)
 const peerConnections = new Map(); // Map<userId, RTCPeerConnection>
-const remoteStreams = new Map(); // Map<userId, MediaStream> - camera streams
-const screenStreams = new Map(); // Map<userId, MediaStream> - screen share streams
-const videoElements = new Map(); // Map<userId, HTMLVideoElement>
-const userNames = new Map(); // Map<userId, username>
+const remoteStreams = new Map();   // Map<userId, MediaStream> - camera streams
+const screenStreams = new Map();   // Map<userId, MediaStream> - screen share streams
+const videoElements = new Map();   // Map<userId, HTMLVideoElement>
+const userNames = new Map();       // Map<userId, username>
 
-// Recording state
-let mediaRecorder = null;
-let recordedChunks = [];
-let isRecording = false;
+// ===== RECORDING STATE =====
+let mediaRecorder = null;   // MediaRecorder instance
+let recordedChunks = [];    // Recorded video chunks
+let isRecording = false;    // Đang ghi?
 
-// ===== ICE/STUN config =====
+// ===== ICE/STUN CONFIG =====
+// Cấu hình STUN servers để NAT traversal
+// STUN giúp tìm public IP để kết nối P2P
 const pcConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
