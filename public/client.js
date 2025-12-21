@@ -63,6 +63,21 @@ const reactionsBtn = document.getElementById('reactions-button');
 const reactionsPopover = document.getElementById('reactions-popover');
 const reactionsLayer = document.getElementById('reactions-layer');
 
+// --- Chat mode selector ---
+const chatModeTabs = document.querySelectorAll('.chat-mode-tab');
+const privateSelector = document.getElementById('private-selector');
+const groupSelector = document.getElementById('group-selector');
+const privateTarget = document.getElementById('private-target');
+const groupTarget = document.getElementById('group-target');
+const groupManageBtn = document.getElementById('group-manage-btn');
+const groupManagePanel = document.getElementById('group-manage-panel');
+const groupManageClose = document.getElementById('group-manage-close');
+const groupNameInput = document.getElementById('group-name-input');
+const groupCreateBtn = document.getElementById('group-create-btn');
+const groupAddUser = document.getElementById('group-add-user');
+const groupAddBtn = document.getElementById('group-add-btn');
+const joinedGroupsList = document.getElementById('joined-groups-list');
+
 // ===== GLOBAL STATE =====
 // Lưu trạng thái của ứng dụng
 
@@ -106,6 +121,10 @@ const screenStreams = new Map();   // Map<userId, MediaStream> - screen share st
 const videoElements = new Map();   // Map<userId, HTMLVideoElement>
 const userNames = new Map();       // Map<userId, username>
 
+// ===== CHAT MODE STATE =====
+let chatMode = 'all';          // 'all' | 'private' | 'group'
+const joinedGroups = new Set(); // Set of group names joined
+
 // ===== RECORDING STATE =====
 let mediaRecorder = null;   // MediaRecorder instance
 let recordedChunks = [];    // Recorded video chunks
@@ -126,13 +145,14 @@ const pcConfig = {
 
 // ===== Auth Functions =====
 async function checkAuth() {
-  const token = localStorage.getItem('authToken');
+  const token = localStorage.getItem('authToken');// Lấy token từ localStorage
   if (!token) {
-    showAuthContainer();
+    showAuthContainer();// Không có token → hiện màn login
     return false;
   }
 
   try {
+    // Gửi request verify token đến server
     const response = await fetch('/api/auth/verify', {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -141,14 +161,14 @@ async function checkAuth() {
 
     if (response.ok) {
       const data = await response.json();
-      currentUser = data.user;
+      currentUser = data.user; // Lưu thông tin user
       authToken = token;
-      showRoomSelection();
-      updateUserInfo();
+      showRoomSelection();// Token hợp lệ → hiện màn chọn phòng
+      updateUserInfo();// Hiện tên user trên header
       return true;
     } else {
-      localStorage.removeItem('authToken');
-      showAuthContainer();
+      localStorage.removeItem('authToken');// Token không hợp lệ → xóa
+      showAuthContainer();// Hiện màn login
       return false;
     }
   } catch (error) {
@@ -233,28 +253,31 @@ loginForm?.addEventListener('submit', async (e) => {
   
   const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value;
-
+ // Validate input
   if (!username || !password) {
     loginError.textContent = 'Vui lòng điền đầy đủ thông tin';
     return;
   }
 
   try {
+    // Gửi POST request đến server
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password })// Gửi username + password
     });
 
-    const data = await response.json();
+    const data = await response.json();// Nhận response từ server
 
     if (response.ok) {
-      localStorage.setItem('authToken', data.token);
-      currentUser = data.user;
+      //  Đăng nhập thành công
+      localStorage.setItem('authToken', data.token);// Lưu JWT token vào localStorage
+      currentUser = data.user;// Lưu thông tin user vào biến global
       authToken = data.token;
-      showRoomSelection();
-      updateUserInfo();
-      loginForm.reset();
+      showRoomSelection();// Chuyển sang màn chọn phòng
+      updateUserInfo();// Hiện tên user ở header
+      loginForm.reset();// Clear form
+      //  Đăng nhập thất bại
     } else {
       loginError.textContent = data.message || 'Đăng nhập thất bại';
     }
@@ -414,7 +437,7 @@ shareScreenBtn.addEventListener('click', async () => {
       console.log('[Share] Already sharing');
       return;
     }
-    
+    // Lấy screen stream
     let screenStream;
     try {
       screenStream = await getScreenStreamWithPicker();
@@ -647,14 +670,68 @@ function appendChatMessage(text, senderName, ts = Date.now(), isSelf = false) {
   chatMessages.appendChild(line);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+
+function appendSystemMessage(text, ts = Date.now()) {
+  const line = document.createElement('div');
+  line.className = 'msg peer';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.style.fontStyle = 'italic';
+  bubble.style.opacity = '0.8';
+  bubble.innerHTML = escapeHtml(text);
+  line.appendChild(bubble);
+  chatMessages.appendChild(line);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
 function sendChat() {
   const text = (chatInput.value || '').trim();
   if (!text || !roomId) return;
-  const payload = { roomId, text, ts: Date.now() };
+
+  const ts = Date.now();
   const myName = currentUser?.username || 'Tôi';
-  appendChatMessage(text, myName, payload.ts, true);
-  socket.emit('chat_message', payload);
-  chatInput.value = '';
+
+  // Based on chatMode, send appropriate message
+  if (chatMode === 'all') {
+    // Broadcast to all in room
+    const payload = { roomId, text, ts };
+    appendChatMessage(text, myName, ts, true);
+    socket.emit('chat_message', payload);
+    chatInput.value = '';
+    return;
+  }
+
+  if (chatMode === 'private') {
+    const toUsername = privateTarget.value;
+    if (!toUsername) {
+      appendSystemMessage('Vui lòng chọn người nhận trước khi gửi tin nhắn riêng.');
+      return;
+    }
+    appendChatMessage(`[PM -> ${toUsername}] ${text}`, myName, ts, true);
+    socket.emit('private_send', { roomId, toUsername, text, ts }, (res) => {
+      if (!res?.ok) {
+        appendSystemMessage(`Gửi tin nhắn riêng thất bại: ${res?.error || 'UNKNOWN_ERROR'}`);
+      }
+    });
+    chatInput.value = '';
+    return;
+  }
+
+  if (chatMode === 'group') {
+    const group = groupTarget.value;
+    if (!group) {
+      appendSystemMessage('Vui lòng chọn nhóm trước khi gửi tin nhắn nhóm.');
+      return;
+    }
+    appendChatMessage(`[Group:${group}] ${text}`, myName, ts, true);
+    socket.emit('group_send', { roomId, group, text, ts }, (res) => {
+      if (!res?.ok) {
+        appendSystemMessage(`Gửi tin nhắn nhóm thất bại: ${res?.error || 'UNKNOWN_ERROR'}`);
+      }
+    });
+    chatInput.value = '';
+    return;
+  }
 }
 chatSend?.addEventListener('click', sendChat);
 chatInput?.addEventListener('keydown', (e) => {
@@ -679,6 +756,201 @@ chatToggle?.addEventListener('click', openChat);
 chatClose?.addEventListener('click', closeChat);
 chatOverlay?.addEventListener('click', closeChat);
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChat(); });
+
+// ===== Chat mode switching =====
+function switchChatMode(mode) {
+  chatMode = mode;
+  
+  // Update active tab
+  chatModeTabs.forEach(tab => {
+    if (tab.dataset.mode === mode) {
+      tab.classList.add('active');
+    } else {
+      tab.classList.remove('active');
+    }
+  });
+  
+  // Show/hide recipient selectors
+  if (mode === 'all') {
+    privateSelector.style.display = 'none';
+    groupSelector.style.display = 'none';
+  } else if (mode === 'private') {
+    privateSelector.style.display = 'flex';
+    groupSelector.style.display = 'none';
+  } else if (mode === 'group') {
+    privateSelector.style.display = 'none';
+    groupSelector.style.display = 'flex';
+  }
+}
+
+chatModeTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    switchChatMode(tab.dataset.mode);
+  });
+});
+
+// ===== User list for private chat =====
+function updateUserList() {
+  if (!privateTarget) return;
+  
+  // Clear current options
+  privateTarget.innerHTML = '<option value="">-- Chọn người --</option>';
+  
+  // Add all users except self
+  userNames.forEach((username, userId) => {
+    if (userId !== socket.id) {
+      const option = document.createElement('option');
+      option.value = username;
+      option.textContent = username;
+      privateTarget.appendChild(option);
+    }
+  });
+
+  // Also populate group-add member dropdown
+  if (groupAddUser) {
+    groupAddUser.innerHTML = '<option value="">-- Chọn người để thêm --</option>';
+    userNames.forEach((username, userId) => {
+      if (userId !== socket.id) {
+        const option = document.createElement('option');
+        option.value = username;
+        option.textContent = username;
+        groupAddUser.appendChild(option);
+      }
+    });
+  }
+}
+
+// ===== Group management =====
+function updateGroupList() {
+  if (!groupTarget || !joinedGroupsList) return;
+  
+  // Update dropdown
+  groupTarget.innerHTML = '<option value="">-- Chọn nhóm --</option>';
+  joinedGroups.forEach(group => {
+    const option = document.createElement('option');
+    option.value = group;
+    option.textContent = group;
+    groupTarget.appendChild(option);
+  });
+  
+  // Update joined groups list
+  joinedGroupsList.innerHTML = '';
+  joinedGroups.forEach(group => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${escapeHtml(group)}</span>`;
+    const leaveBtn = document.createElement('button');
+    leaveBtn.textContent = 'Rời';
+    leaveBtn.addEventListener('click', () => leaveGroup(group));
+    li.appendChild(leaveBtn);
+    joinedGroupsList.appendChild(li);
+  });
+  
+  // Re-render Lucide icons
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+function createGroup(groupName) {
+  const sanitized = String(groupName || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+  if (!sanitized) {
+    appendSystemMessage('Tên nhóm không hợp lệ. Chỉ cho phép chữ, số, _, -');
+    return;
+  }
+
+  socket.emit('group_create', { roomId, group: sanitized }, (res) => {
+    if (res?.ok) {
+      // Server will also send group_added, but add optimistically
+      joinedGroups.add(res.group);
+      updateGroupList();
+      groupTarget.value = res.group;
+      appendSystemMessage(`Đã tạo nhóm: ${res.group}`);
+    } else {
+      appendSystemMessage(`Tạo nhóm thất bại: ${res?.error || 'UNKNOWN_ERROR'}`);
+    }
+  });
+}
+
+function addMemberToGroup(groupName, username) {
+  const g = String(groupName || '').trim();
+  const u = String(username || '').trim();
+  if (!g) {
+    appendSystemMessage('Vui lòng chọn nhóm để thêm người.');
+    return;
+  }
+  if (!u) {
+    appendSystemMessage('Vui lòng chọn người để thêm vào nhóm.');
+    return;
+  }
+
+  socket.emit('group_add_members', { roomId, group: g, usernames: [u] }, (res) => {
+    if (res?.ok) {
+      appendSystemMessage(`Đã thêm ${u} vào nhóm ${g}`);
+    } else {
+      appendSystemMessage(`Thêm người thất bại: ${res?.error || 'UNKNOWN_ERROR'}`);
+    }
+  });
+}
+
+function leaveGroup(groupName) {
+  socket.emit('group_leave', { roomId, group: groupName }, (res) => {
+    if (res?.ok) {
+      joinedGroups.delete(res.group);
+      updateGroupList();
+      appendSystemMessage(`Đã rời nhóm: ${res.group}`);
+    } else {
+      appendSystemMessage(`Rời nhóm thất bại: ${res?.error || 'UNKNOWN_ERROR'}`);
+    }
+  });
+}
+
+groupManageBtn?.addEventListener('click', () => {
+  if (groupManagePanel) {
+    groupManagePanel.style.display = groupManagePanel.style.display === 'none' ? 'block' : 'none';
+  }
+});
+
+groupManageClose?.addEventListener('click', () => {
+  if (groupManagePanel) {
+    groupManagePanel.style.display = 'none';
+  }
+});
+
+groupCreateBtn?.addEventListener('click', () => {
+  const groupName = groupNameInput?.value?.trim();
+  if (groupName) {
+    createGroup(groupName);
+    groupNameInput.value = '';
+  }
+});
+
+groupNameInput?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const groupName = groupNameInput.value.trim();
+    if (groupName) {
+      createGroup(groupName);
+      groupNameInput.value = '';
+    }
+  }
+});
+
+groupAddBtn?.addEventListener('click', () => {
+  const groupName = groupTarget?.value;
+  const username = groupAddUser?.value;
+  addMemberToGroup(groupName, username);
+  if (groupAddUser) groupAddUser.value = '';
+});
+
+groupAddUser?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const groupName = groupTarget?.value;
+    const username = groupAddUser?.value;
+    addMemberToGroup(groupName, username);
+    if (groupAddUser) groupAddUser.value = '';
+  }
+});
 
 // ===== Chat badge for unread =====
 function updateChatBadge() {
@@ -727,7 +999,7 @@ function rateLimitReaction() {
 function showReaction(emoji) {
   if (!reactionsLayer) return;
   const el = document.createElement('div');
-  el.className = 'reaction-float';
+  el.className = 'reaction-float'; // class CSS để animation
   el.textContent = emoji;
   const left = 15 + Math.random() * 70; // 15%..85%
   el.style.left = left + '%';
@@ -752,11 +1024,11 @@ reactionsBtn?.addEventListener('click', (e) => {
 });
 
 reactionsPopover?.addEventListener('click', (e) => {
-  const target = e.target;
-  if (target && target.classList.contains('rxn')) {
-    const emoji = target.textContent.trim();
-    emitReaction(emoji);
-    reactionsPopover.style.display = 'none';
+  const target = e.target; // Element được click
+  if (target && target.classList.contains('rxn')) { //Kiểm tra là nút emoji
+    const emoji = target.textContent.trim(); // Lấy emoji
+    emitReaction(emoji); // Gửi emoji
+    reactionsPopover.style.display = 'none'; // Ẩn popover
   }
 });
 
@@ -767,8 +1039,9 @@ document.addEventListener('click', (e) => {
 });
 
 // ===== Socket events for Group Call =====
-socket.on('room_joined', async ({ users, roomSize }) => {
+socket.on('room_joined', async ({ users, roomSize, groups }) => {
   console.log(`[Room] Joined. ${roomSize} users total. Existing users:`, users);
+  // Xin camera/microphone
   await setLocalStream();
   
   if (!localStream) {
@@ -789,14 +1062,27 @@ socket.on('room_joined', async ({ users, roomSize }) => {
     });
   }
   
-  // Create peer connections for all existing users
+  // Update user list for private chat dropdown
+  updateUserList();
+
+  // Sync my groups (server-driven)
+  if (Array.isArray(groups)) {
+    joinedGroups.clear();
+    groups.forEach(g => {
+      if (typeof g === 'string' && g.trim()) joinedGroups.add(g.trim());
+    });
+    updateGroupList();
+  }
+  
+  // Tạo peer connection với MỌI user đã có
   const userIds = Array.isArray(users) ? users.map(u => u.socketId || u) : users;
   for (const userId of userIds) {
     console.log(`[Room] Creating peer connection for existing user ${userId}`);
-    const pc = createPeerConnection(userId);
+    const pc = createPeerConnection(userId); // Tạo RTCPeerConnection
+    // Tạo offer và gửi cho peer
     try {
       const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+      await pc.setLocalDescription(offer); //  SDP offer
       socket.emit('webrtc_offer', { roomId, sdp: offer, targetId: userId });
       console.log(`[Offer] Sent to ${userId}`);
     } catch (error) {
@@ -810,12 +1096,15 @@ socket.on('user_joined', async ({ userId, username, roomSize }) => {
   if (username) {
     userNames.set(userId, username);
   }
+  updateUserList(); // Update private chat dropdown
   // New user joined, they will send us an offer, we just wait
 });
 
 socket.on('user_left', ({ userId, roomSize }) => {
   console.log(`[Room] User ${userId} left. Remaining: ${roomSize}`);
   closePeerConnection(userId);
+  userNames.delete(userId); // Remove from userNames
+  updateUserList(); // Update private chat dropdown
 });
 
 socket.on('webrtc_offer', async ({ sdp, fromId }) => {
@@ -837,7 +1126,7 @@ socket.on('webrtc_offer', async ({ sdp, fromId }) => {
     
     // Kiểm tra xem còn screen track không
     checkAndRemoveScreenTile(fromId, pc);
-    
+    // Tạo ANSWER
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     
@@ -857,7 +1146,7 @@ socket.on('webrtc_answer', async ({ sdp, fromId }) => {
       return;
     }
 
-    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    await pc.setRemoteDescription(new RTCSessionDescription(sdp)); // kết nối đã được thiết lập
     console.log(`[Answer] Applied from ${fromId}`);
     
     // Kiểm tra xem còn screen track không
@@ -943,9 +1232,66 @@ socket.on('chat_message', ({ text, ts, from, username }) => {
     updateChatBadge();
   }
 });
+
+socket.on('private_message', ({ text, ts, from, usernameFrom, usernameTo }) => {
+  const isSelf = from === socket.id;
+  const senderName = isSelf ? (currentUser?.username || 'Tôi') : (usernameFrom || userNames.get(from) || `User ${String(from).slice(0,6)}`);
+  const prefix = isSelf ? `[PM -> ${usernameTo || '...'}] ` : '[PM] ';
+  // Sender already renders locally for private sends; only render incoming
+  if (!isSelf) {
+    appendChatMessage(`${prefix}${text || ''}`, senderName, ts || Date.now(), false);
+  }
+  if (!isChatOpen && !isSelf) {
+    unreadCount += 1;
+    updateChatBadge();
+  }
+});
+
+socket.on('group_message', ({ text, ts, from, group, username }) => {
+  const isSelf = from === socket.id;
+  const senderName = isSelf ? (currentUser?.username || 'Tôi') : (username || userNames.get(from) || `User ${String(from).slice(0,6)}`);
+  // Sender already renders locally; only render incoming
+  if (!isSelf) {
+    appendChatMessage(`[Group:${group || '?'}] ${text || ''}`, senderName, ts || Date.now(), false);
+  }
+  if (!isChatOpen && !isSelf) {
+    unreadCount += 1;
+    updateChatBadge();
+  }
+});
+
+// Server-driven group membership updates (when owner adds/removes you)
+socket.on('group_added', ({ group }) => {
+  if (typeof group === 'string' && group.trim()) {
+    const g = group.trim();
+    joinedGroups.add(g);
+    updateGroupList();
+    // If user is already in group mode, auto-select the new group for convenience
+    if (groupTarget && (chatMode === 'group') && !groupTarget.value) {
+      groupTarget.value = g;
+    }
+    appendSystemMessage(`Bạn đã được thêm vào nhóm: ${g}`);
+  }
+});
+
+socket.on('group_removed', ({ group }) => {
+  if (typeof group === 'string' && group.trim()) {
+    const g = group.trim();
+    joinedGroups.delete(g);
+    updateGroupList();
+    if (groupTarget && groupTarget.value === g) {
+      groupTarget.value = '';
+    }
+    appendSystemMessage(`Nhóm đã bị xóa / bạn đã rời nhóm: ${g}`);
+  }
+});
+
+socket.on('system_message', ({ text, ts }) => {
+  appendSystemMessage(text || '', ts || Date.now());
+});
 function joinRoom(room) {
   console.log('[Join] request', room);
-  roomId = room;
+  roomId = room;// Lưu room ID global
   try {
     // Gửi kèm thông tin user
     const userInfo = {
@@ -953,12 +1299,13 @@ function joinRoom(room) {
       username: currentUser ? currentUser.username : 'Anonymous',
       userId: currentUser ? currentUser._id : null
     };
-    socket.emit('join', userInfo);
+    socket.emit('join', userInfo);// ← Gửi đến server qua Socket.IO
   } catch (e) {
     console.error('[Join] emit failed', e);
     alert('Không thể gửi join: ' + (e.message || e));
     return;
   }
+  // Chuyển UI sang màn video chat
   roomSelectionContainer.style.display = 'none';
   videoChatContainer.style.display = 'block';
   if (chatToggle) chatToggle.style.display = 'inline-flex';
@@ -1115,9 +1462,10 @@ function removeVideoTile(userId) {
 }
 
 function createPeerConnection(userId) {
+  // Tạo RTCPeerConnection với STUN servers
   const pc = new RTCPeerConnection(pcConfig);
   
-  // Add local stream tracks
+  // Add local tracks (gửi video/audio cho peer)
   if (localStream) {
     localStream.getTracks().forEach(track => {
       const sender = pc.addTrack(track, localStream);
@@ -1131,11 +1479,14 @@ function createPeerConnection(userId) {
   pc.ontrack = (event) => {
     console.log(`[Track] Received ${event.track.kind} from ${userId}, track.id: ${event.track.id}`);
     const track = event.track;
+    const streams = event.streams;
     
-    // Phân biệt camera track và screen track bằng track label hoặc stream
-    // Nếu là video track và đã có camera stream -> đây là screen track
-    const isScreenTrack = track.kind === 'video' && remoteStreams.has(userId) && 
-                          remoteStreams.get(userId).getVideoTracks().length > 0;
+    console.log(`[Track] Event has ${streams.length} streams`);
+    
+    // Kiểm tra xem có phải screen track không bằng cách xem có video track thứ 2
+    const existingStream = remoteStreams.get(userId);
+    const hasExistingVideoTrack = existingStream && existingStream.getVideoTracks().length > 0;
+    const isScreenTrack = track.kind === 'video' && hasExistingVideoTrack;
     
     if (isScreenTrack) {
       console.log(`[Track] This is a screen share track from ${userId}`);
@@ -1203,32 +1554,44 @@ function createPeerConnection(userId) {
       console.log(`[Track] Created new camera stream for ${userId}`);
     }
     
+    // Add track to stream
     stream.addTrack(track);
-    console.log(`[Track] Camera stream for ${userId} now has ${stream.getTracks().length} tracks`);
+    console.log(`[Track] Camera stream for ${userId} now has ${stream.getTracks().length} tracks:`, 
+      stream.getTracks().map(t => `${t.kind}:${t.enabled}`));
     
     // Tạo hoặc cập nhật camera tile
     let video = videoElements.get(userId);
     if (!video) {
       const username = userNames.get(userId) || `User ${userId.slice(0, 6)}`;
+      console.log(`[Track] Creating video tile for ${userId} with username ${username}`);
       video = createVideoTile(userId, stream, username);
+      console.log(`[Track] Video tile created for ${userId}, srcObject set:`, !!video.srcObject);
     } else {
-      // Cập nhật srcObject nếu cần
-      if (video.srcObject !== stream) {
-        video.srcObject = stream;
-      }
+      // Cập nhật srcObject - QUAN TRỌNG: Luôn cập nhật khi có track mới
+      console.log(`[Track] Updating existing video for ${userId}`);
+      video.srcObject = stream;
+      console.log(`[Track] Video srcObject updated for ${userId}`);
+    }
+    
+    // Force video to play (workaround cho một số trình duyệt)
+    if (video && video.paused) {
+      video.play().catch(e => console.warn(`[Track] Could not autoplay video for ${userId}:`, e));
     }
   };
   
-  // Handle ICE candidates
+  // Xử lý ICE candidates (tìm đường kết nối tốt nhất)
   pc.onicecandidate = ({ candidate }) => {
     if (candidate) {
       socket.emit('webrtc_ice_candidate', { roomId, candidate, targetId: userId });
     }
   };
   
-  // Connection state monitoring
+  // giám sát trạng thái kết nối ICE
   pc.oniceconnectionstatechange = () => {
     console.log(`[ICE ${userId}]`, pc.iceConnectionState);
+    if (pc.iceConnectionState === 'connected') {
+      console.log(`[ICE ${userId}] ✅ Connection established!`);
+    }
     if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
       console.warn(`[Peer ${userId}] Connection lost`);
     }
@@ -1236,6 +1599,9 @@ function createPeerConnection(userId) {
   
   pc.onconnectionstatechange = () => {
     console.log(`[PC ${userId}]`, pc.connectionState);
+    if (pc.connectionState === 'connected') {
+      console.log(`[PC ${userId}] ✅ Peer connection established!`);
+    }
   };
   
   peerConnections.set(userId, pc);
@@ -1280,15 +1646,14 @@ function startRecording() {
   if (isRecording) return;
   
   try {
-    // Combine local stream with audio
+    // kết hợp stream với audio
     const tracks = [];
     if (localStream) {
       localStream.getTracks().forEach(track => tracks.push(track));
     }
     
     const recordStream = new MediaStream(tracks);
-    
-    // Create MediaRecorder
+    // Tạo MediaRecorder từ stream kết hợp
     const options = { mimeType: 'video/webm;codecs=vp9,opus' };
     
     // Fallback for different browsers
@@ -1301,13 +1666,13 @@ function startRecording() {
     
     mediaRecorder = new MediaRecorder(recordStream, options);
     recordedChunks = [];
-    
+    // Lưu chunks khi có data
     mediaRecorder.ondataavailable = (event) => {
       if (event.data && event.data.size > 0) {
         recordedChunks.push(event.data);
       }
     };
-    
+    // Khi dừng → tạo file và download
     mediaRecorder.onstop = () => {
       const blob = new Blob(recordedChunks, { type: 'video/webm' });
       const url = URL.createObjectURL(blob);

@@ -66,6 +66,62 @@
       </button>
     </div>
     <div class="chat-modal-body">
+      <!-- Chat mode selector -->
+      <div class="chat-mode-selector">
+        <label>Gửi tới:</label>
+        <div class="chat-mode-tabs">
+          <button class="chat-mode-tab active" data-mode="all">Tất cả</button>
+          <button class="chat-mode-tab" data-mode="private">Riêng tư</button>
+          <button class="chat-mode-tab" data-mode="group">Nhóm</button>
+        </div>
+      </div>
+      
+      <!-- Private recipient selector -->
+      <div class="chat-recipient-row" id="private-selector" style="display:none;">
+        <label for="private-target">Gửi cho:</label>
+        <select id="private-target" class="chat-select">
+          <option value="">-- Chọn người --</option>
+        </select>
+      </div>
+      
+      <!-- Group selector & management -->
+      <div class="chat-recipient-row" id="group-selector" style="display:none;">
+        <label for="group-target">Nhóm:</label>
+        <select id="group-target" class="chat-select">
+          <option value="">-- Chọn nhóm --</option>
+        </select>
+        <button id="group-manage-btn" class="icon-btn" title="Quản lý nhóm">
+          <i data-lucide="settings"></i>
+        </button>
+      </div>
+      
+      <!-- Group management panel (hidden by default) -->
+      <div class="group-manage-panel" id="group-manage-panel" style="display:none;">
+        <div class="group-manage-header">
+          <span>Quản lý nhóm</span>
+          <button id="group-manage-close" class="icon-btn-sm">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="group-manage-body">
+          <div class="group-create-row">
+            <input id="group-name-input" type="text" placeholder="Tên nhóm mới..." maxlength="32" />
+            <button id="group-create-btn" class="primary-btn-sm">Tạo</button>
+          </div>
+
+          <div class="group-add-row">
+            <select id="group-add-user" class="chat-select">
+              <option value="">-- Chọn người để thêm --</option>
+            </select>
+            <button id="group-add-btn" class="primary-btn-sm">Thêm</button>
+          </div>
+          <div class="group-list">
+            <label>Nhóm của bạn:</label>
+            <ul id="joined-groups-list"></ul>
+          </div>
+        </div>
+      </div>
+      
       <div class="chat-messages" id="chat-messages"></div>
       <div class="chat-input-row">
         <input id="chat-input" type="text" placeholder="Nhắn tin..." />
