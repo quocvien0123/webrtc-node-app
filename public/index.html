@@ -35,8 +35,26 @@
     <div data-include="partials/video-chat.html"></div>
   </div>
 
-  <!-- Socket.io + client.js -->
+  <!-- Socket.io -->
   <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Global state & DOM management -->
+  <script src="state.js"></script>
+
+  <!-- Core modules (in dependency order) -->
+  <script src="webrtc.js"></script>
+  <script src="media.js"></script>
+  <script src="auth.js"></script>
+  <script src="room.js"></script>
+  <script src="screen-share.js"></script>
+  <script src="chat.js"></script>
+  <script src="reactions.js"></script>
+  <script src="recording.js"></script>
+  
+  <!-- Socket handlers -->
+  <script src="socket-handlers.js"></script>
+
+  <!-- Main entry point -->
   <script src="client.js"></script>
 
   <!-- Kích hoạt Lucide icons sau khi include xong -->
