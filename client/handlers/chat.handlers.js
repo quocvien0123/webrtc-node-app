@@ -5,34 +5,89 @@ function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 }
 
-function appendChatMessage(text, senderName, ts = Date.now(), isSelf = false) {
+// Generate avatar initials from name
+function getAvatarInitials(name) {
+  if (!name) return '?';
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+// Format timestamp
+function formatTime(ts) {
+  const date = new Date(ts);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+// ✅ REDESIGNED: Append chat message with avatar and header
+function appendChatMessage(text, senderName, ts = Date.now(), isSelf = false, badge = null) {
   const line = document.createElement('div');
   line.className = `msg ${isSelf ? 'me' : 'peer'}`;
 
-  const bubble = document.createElement('div');
-  bubble.className = 'bubble';
-  bubble.innerHTML = escapeHtml(text);
-
-  if (!isSelf) {
-    const senderLabel = document.createElement('div');
-    senderLabel.className = 'msg-sender';
-    senderLabel.textContent = senderName || 'Người khác';
-    line.appendChild(senderLabel);
+  // Message header (avatar + sender + time)
+  const header = document.createElement('div');
+  header.className = 'msg-header';
+  
+  // Avatar
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.textContent = getAvatarInitials(senderName);
+  
+  // Sender name
+  const sender = document.createElement('span');
+  sender.className = 'msg-sender';
+  sender.textContent = senderName || 'Người khác';
+  
+  // Time
+  const time = document.createElement('span');
+  time.className = 'msg-time';
+  time.textContent = formatTime(ts);
+  
+  header.appendChild(avatar);
+  header.appendChild(sender);
+  header.appendChild(time);
+  line.appendChild(header);
+  
+  // Badge (for private/group messages)
+  if (badge) {
+    const badgeEl = document.createElement('div');
+    badgeEl.className = `msg-badge ${badge.type}`;
+    if (badge.icon) {
+      badgeEl.innerHTML = `<i data-lucide="${badge.icon}"></i><span>${escapeHtml(badge.text)}</span>`;
+    } else {
+      badgeEl.textContent = badge.text;
+    }
+    line.appendChild(badgeEl);
   }
 
-  line.appendChild(bubble);
-  chatMessages.appendChild(line);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-function appendSystemMessage(text, ts = Date.now()) {
-  const line = document.createElement('div');
-  line.className = 'msg peer';
+  // Message bubble
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  bubble.style.fontStyle = 'italic';
-  bubble.style.opacity = '0.8';
-  bubble.innerHTML = escapeHtml(text);
+  bubble.textContent = text; // Use textContent to avoid XSS
+  line.appendChild(bubble);
+  
+  chatMessages.appendChild(line);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  
+  // Re-render lucide icons for badge
+  if (badge && window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+// ✅ REDESIGNED: System message
+function appendSystemMessage(text, ts = Date.now()) {
+  const line = document.createElement('div');
+  line.className = 'msg system';
+  
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  
   line.appendChild(bubble);
   chatMessages.appendChild(line);
   chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -48,7 +103,7 @@ function sendChat() {
 
   if (chatMode === 'all') {
     const payload = { roomId, text, ts };
-    appendChatMessage(text, myName, ts, true);
+    appendChatMessage(text, myName, ts, true); // No badge for "all" mode
     socket.emit('chat_message', payload);
     chatInput.value = '';
     return;
@@ -60,7 +115,12 @@ function sendChat() {
       appendSystemMessage('Vui lòng chọn người nhận trước khi gửi tin nhắn riêng.');
       return;
     }
-    appendChatMessage(`[PM -> ${toUsername}] ${text}`, myName, ts, true);
+    // ✅ ADD BADGE for private message
+    appendChatMessage(text, myName, ts, true, {
+      type: 'private',
+      icon: 'lock',
+      text: `Riêng tư → ${toUsername}`
+    });
     socket.emit('private_send', { roomId, toUsername, text, ts }, (res) => {
       if (!res?.ok) {
         appendSystemMessage(`Gửi tin nhắn riêng thất bại: ${res?.error || 'UNKNOWN_ERROR'}`);
@@ -76,7 +136,12 @@ function sendChat() {
       appendSystemMessage('Vui lòng chọn nhóm trước khi gửi tin nhắn nhóm.');
       return;
     }
-    appendChatMessage(`[Group:${group}] ${text}`, myName, ts, true);
+    // ✅ ADD BADGE for group message
+    appendChatMessage(text, myName, ts, true, {
+      type: 'group',
+      icon: 'hash',
+      text: group
+    });
     socket.emit('group_send', { roomId, group, text, ts }, (res) => {
       if (!res?.ok) {
         appendSystemMessage(`Gửi tin nhắn nhóm thất bại: ${res?.error || 'UNKNOWN_ERROR'}`);

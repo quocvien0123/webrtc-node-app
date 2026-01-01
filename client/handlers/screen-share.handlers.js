@@ -89,7 +89,16 @@ async function startScreenShare() {
     const screenTrack = screenStream.getVideoTracks()[0];
     try { screenTrack.contentHint = 'detail'; } catch {}
 
-    // Create screen share tile
+    // ✅ CHUYỂN SANG SPOTLIGHT MODE
+    enableSpotlightMode();
+
+    // Create screen share tile IN SPOTLIGHT MAIN
+    const spotlightMain = document.querySelector('.spotlight-main');
+    if (!spotlightMain) {
+      console.error('[Share] No spotlight-main container');
+      return;
+    }
+
     const tile = document.createElement('div');
     tile.className = 'video-tile screen-share-tile';
     tile.id = 'screen-share-tile';
@@ -104,12 +113,21 @@ async function startScreenShare() {
     video.playsinline = true;
     video.srcObject = screenStream;
     
+    // ✅ THÊM FULLSCREEN TOGGLE BUTTON
+    const fullscreenBtn = document.createElement('button');
+    fullscreenBtn.className = 'fullscreen-toggle';
+    fullscreenBtn.innerHTML = '<i data-lucide="maximize"></i>';
+    fullscreenBtn.onclick = () => toggleSpotlightFullscreen();
+    
     tile.appendChild(labelEl);
     tile.appendChild(video);
-    videosContainer.appendChild(tile);
-    screenShareVideoElement = video;
+    tile.appendChild(fullscreenBtn);
+    spotlightMain.appendChild(tile);
     
-    console.log('[Share] Created screen share video tile');
+    screenShareVideoElement = video;
+    lucide.createIcons();
+    
+    console.log('[Share] Created screen share tile in spotlight mode');
 
     // Add screen track to all peers
     for (const [userId, pc] of peerConnections.entries()) {
@@ -189,7 +207,89 @@ function stopScreenShare() {
     socket.emit('screen_share_stopped', { roomId });
   }
   
+  // ✅ TẮT SPOTLIGHT MODE
+  disableSpotlightMode();
+  
   console.log('[Share] Screen share removed, camera still active');
+}
+
+// ✅ SPOTLIGHT MODE FUNCTIONS
+function enableSpotlightMode() {
+  const container = document.getElementById('videos-container');
+  if (!container) return;
+  
+  // Add spotlight-mode class
+  container.classList.add('spotlight-mode');
+  
+  // Create spotlight structure
+  const spotlightMain = document.createElement('div');
+  spotlightMain.className = 'spotlight-main';
+  spotlightMain.id = 'spotlight-main';
+  
+  const spotlightSidebar = document.createElement('div');
+  spotlightSidebar.className = 'spotlight-sidebar';
+  spotlightSidebar.id = 'spotlight-sidebar';
+  
+  // Move all existing video tiles to sidebar
+  const tiles = Array.from(container.querySelectorAll('.video-tile'));
+  tiles.forEach(tile => {
+    spotlightSidebar.appendChild(tile);
+  });
+  
+  container.appendChild(spotlightMain);
+  container.appendChild(spotlightSidebar);
+  
+  console.log('[Spotlight] Enabled spotlight mode');
+}
+
+function disableSpotlightMode() {
+  const container = document.getElementById('videos-container');
+  if (!container) return;
+  
+  container.classList.remove('spotlight-mode');
+  
+  // Move tiles back to main container
+  const sidebar = document.getElementById('spotlight-sidebar');
+  const main = document.getElementById('spotlight-main');
+  
+  if (sidebar) {
+    const tiles = Array.from(sidebar.querySelectorAll('.video-tile'));
+    tiles.forEach(tile => {
+      container.appendChild(tile);
+    });
+    sidebar.remove();
+  }
+  
+  if (main) {
+    main.remove();
+  }
+  
+  console.log('[Spotlight] Disabled spotlight mode');
+}
+
+function toggleSpotlightFullscreen() {
+  const spotlightMain = document.getElementById('spotlight-main');
+  if (!spotlightMain) return;
+  
+  const fullscreenBtn = spotlightMain.querySelector('.fullscreen-toggle i');
+  
+  if (spotlightMain.classList.contains('fullscreen')) {
+    // Exit fullscreen
+    spotlightMain.classList.remove('fullscreen');
+    if (fullscreenBtn) {
+      fullscreenBtn.setAttribute('data-lucide', 'maximize');
+      lucide.createIcons();
+    }
+    console.log('[Spotlight] Exited fullscreen');
+  } else {
+    // Enter fullscreen
+    spotlightMain.classList.add('fullscreen');
+    if (fullscreenBtn) {
+      fullscreenBtn.setAttribute('data-lucide', 'minimize');
+      lucide.createIcons();
+    }
+    console.log('[Spotlight] Entered fullscreen');
+  }
 }
 
 // ===== Screen Share Event Listeners =====

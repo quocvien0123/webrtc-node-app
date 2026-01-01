@@ -1,5 +1,10 @@
 <main id="video-chat-container" class="video-layout" style="display:none;">
-  <section class="video-area card">
+  <!-- Participant count badge -->
+  <div class="participant-count" id="participant-count" style="display:none;">
+    <span id="participant-count-text">2 người</span>
+  </div>
+
+  <section class="video-area">
     <!-- Video grid cho nhiều người -->
     <div id="videos-container" class="videos-container">
       <!-- Local video -->
@@ -10,31 +15,31 @@
       <!-- Remote videos sẽ được thêm động -->
     </div>
 
-    <!-- Bottom control bar -->
+    <!-- Bottom control bar với tooltips -->
     <div class="bottom-bar">
       <div class="control-buttons">
-        <button class="btn" id="mic-button" title="Bật / tắt micro">
+        <button class="btn" id="mic-button" data-tooltip="Micro">
           <i data-lucide="mic"></i>
         </button>
-        <button class="btn" id="cam-button" title="Bật / tắt camera">
+        <button class="btn" id="cam-button" data-tooltip="Camera">
           <i data-lucide="camera"></i>
         </button>
-        <button class="btn" id="share-screen-button" title="Chia sẻ màn hình">
+        <button class="btn" id="share-screen-button" data-tooltip="Chia sẻ màn hình">
           <i data-lucide="screen-share"></i>
         </button>
-        <button class="btn" id="stop-share-button" title="Dừng chia sẻ màn hình" style="display:none;">
+        <button class="btn" id="stop-share-button" data-tooltip="Dừng chia sẻ" style="display:none;">
           <i data-lucide="screen-share-off"></i>
         </button>
-        <button class="btn" id="record-button" title="Ghi lại cuộc gọi">
+        <button class="btn" id="record-button" data-tooltip="Ghi lại">
           <i data-lucide="circle"></i>
         </button>
-        <button class="btn" id="stop-record-button" title="Dừng ghi" style="display:none;">
+        <button class="btn" id="stop-record-button" data-tooltip="Dừng ghi" style="display:none;">
           <i data-lucide="square"></i>
         </button>
-        <button class="btn" id="reactions-button" title="Thả cảm xúc">
+        <button class="btn" id="reactions-button" data-tooltip="Cảm xúc">
           <i data-lucide="smile"></i>
         </button>
-        <button class="btn hangup" id="leave-button" title="Rời cuộc gọi">
+        <button class="btn hangup" id="leave-button" data-tooltip="Rời khỏi">
           <i data-lucide="phone-off"></i>
         </button>
       </div>
@@ -60,25 +65,39 @@
   <div id="chat-overlay" class="modal-overlay" style="display:none;"></div>
   <section id="chat-modal" class="chat-modal card" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="chat-modal-title">
     <div class="chat-modal-header">
-      <h3 id="chat-modal-title">Chat</h3>
+      <h3 id="chat-modal-title">
+        <i data-lucide="message-circle"></i>
+        Trò chuyện
+      </h3>
       <button id="chat-close" class="icon-btn" aria-label="Đóng">
         <i data-lucide="x"></i>
       </button>
     </div>
     <div class="chat-modal-body">
-      <!-- Chat mode selector -->
+      <!-- Chat mode selector với icons -->
       <div class="chat-mode-selector">
-        <label>Gửi tới:</label>
         <div class="chat-mode-tabs">
-          <button class="chat-mode-tab active" data-mode="all">Tất cả</button>
-          <button class="chat-mode-tab" data-mode="private">Riêng tư</button>
-          <button class="chat-mode-tab" data-mode="group">Nhóm</button>
+          <button class="chat-mode-tab active" data-mode="all">
+            <i data-lucide="users"></i>
+            <span>Tất cả</span>
+          </button>
+          <button class="chat-mode-tab" data-mode="private">
+            <i data-lucide="user"></i>
+            <span>Riêng tư</span>
+          </button>
+          <button class="chat-mode-tab" data-mode="group">
+            <i data-lucide="users-round"></i>
+            <span>Nhóm</span>
+          </button>
         </div>
       </div>
       
       <!-- Private recipient selector -->
       <div class="chat-recipient-row" id="private-selector" style="display:none;">
-        <label for="private-target">Gửi cho:</label>
+        <label for="private-target">
+          <i data-lucide="arrow-right" style="width:12px;height:12px;display:inline-block;vertical-align:middle;"></i>
+          Gửi cho:
+        </label>
         <select id="private-target" class="chat-select">
           <option value="">-- Chọn người --</option>
         </select>
@@ -86,7 +105,10 @@
       
       <!-- Group selector & management -->
       <div class="chat-recipient-row" id="group-selector" style="display:none;">
-        <label for="group-target">Nhóm:</label>
+        <label for="group-target">
+          <i data-lucide="hash" style="width:12px;height:12px;display:inline-block;vertical-align:middle;"></i>
+          Nhóm:
+        </label>
         <select id="group-target" class="chat-select">
           <option value="">-- Chọn nhóm --</option>
         </select>
@@ -95,7 +117,7 @@
         </button>
       </div>
       
-      <!-- Group management panel (hidden by default) -->
+      <!-- Group management panel -->
       <div class="group-manage-panel" id="group-manage-panel" style="display:none;">
         <div class="group-manage-header">
           <span>Quản lý nhóm</span>
@@ -122,10 +144,15 @@
         </div>
       </div>
       
-      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-messages" id="chat-messages">
+        <!-- Messages will be appended here dynamically -->
+      </div>
+      
       <div class="chat-input-row">
         <input id="chat-input" type="text" placeholder="Nhắn tin..." />
-        <button id="chat-send" class="primary-btn">Gửi</button>
+        <button id="chat-send" class="primary-btn">
+          <i data-lucide="send" style="width:16px;height:16px;"></i>
+        </button>
       </div>
     </div>
   </section>

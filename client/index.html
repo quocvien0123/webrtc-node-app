@@ -5,57 +5,66 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VN Meet – Video Conference</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="assets/styles/style.css">
+  
+  <!-- Preconnect to external resources for faster loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="/socket.io/socket.io.js" as="script">
+  <link rel="preload" href="core/state.js" as="script">
+  <link rel="preload" href="services/webrtc.js" as="script">
+  
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
     rel="stylesheet">
 
   <!-- Lucide icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="includes.js" defer></script>
+  <script src="components/includes.js" defer></script>
 </head>
 
 <body>
   <div class="app-shell">
     <!-- Header -->
-    <div data-include="partials/header.html"></div>
+    <div data-include="components/shared/header.html"></div>
 
     <!-- Container đăng nhập/đăng ký -->
     <!-- Auth -->
-    <div data-include="partials/auth.html"></div>
+    <div data-include="components/auth/auth.html"></div>
 
     <!-- Container chọn phòng -->
     <!-- Room Selection -->
-    <div data-include="partials/room-selection.html"></div>
+    <div data-include="components/room/room-selection.html"></div>
 
     <!-- Container video conference -->
     <!-- Video Chat -->
-    <div data-include="partials/video-chat.html"></div>
+    <div data-include="components/video/video-chat.html"></div>
   </div>
 
   <!-- Socket.io -->
   <script src="/socket.io/socket.io.js"></script>
 
   <!-- Global state & DOM management -->
-  <script src="state.js"></script>
+  <script src="core/state.js"></script>
 
   <!-- Core modules (in dependency order) -->
-  <script src="webrtc.js"></script>
-  <script src="media.js"></script>
-  <script src="auth.js"></script>
-  <script src="room.js"></script>
-  <script src="screen-share.js"></script>
-  <script src="chat.js"></script>
-  <script src="reactions.js"></script>
-  <script src="recording.js"></script>
+  <script src="services/webrtc.js"></script>
+  <script src="handlers/media.handlers.js"></script>
+  <script src="handlers/auth.handlers.js"></script>
+  <script src="handlers/room.handlers.js"></script>
+  <script src="handlers/screen-share.handlers.js"></script>
+  <script src="handlers/chat.handlers.js"></script>
+  <script src="handlers/reactions.handlers.js"></script>
+  <script src="handlers/recording.handlers.js"></script>
   
   <!-- Socket handlers -->
-  <script src="socket-handlers.js"></script>
+  <script src="handlers/socket-handlers.js"></script>
 
   <!-- Main entry point -->
-  <script src="client.js"></script>
+  <script src="app.js"></script>
 
   <!-- Kích hoạt Lucide icons sau khi include xong -->
   <script>

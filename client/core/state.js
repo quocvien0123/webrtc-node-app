@@ -24,6 +24,7 @@ const remoteStreams = new Map();
 const screenStreams = new Map();
 const videoElements = new Map();
 const userNames = new Map();
+const pendingIceCandidates = new Map(); // ← THÊM: Queue ICE candidates
 
 // ===== CHAT STATE =====
 let chatMode = 'all'; // 'all' | 'private' | 'group'
@@ -42,9 +43,12 @@ const pcConfig = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
   ],
+  // TỐI ƯU: ICE gathering nhanh hơn
+  iceTransportPolicy: 'all', // Cho phép tất cả candidates (relay, srflx, host)
+  iceCandidatePoolSize: 10,  // Pre-gather candidates trước khi createOffer
+  bundlePolicy: 'max-bundle', // Gộp tất cả media vào 1 connection
+  rtcpMuxPolicy: 'require',   // Gộp RTP và RTCP
 };
 
 // ===== DOM ELEMENTS =====
@@ -144,18 +148,61 @@ function showAuthContainer() {
   authContainer.style.display = 'block';
   roomSelectionContainer.style.display = 'none';
   videoChatContainer.style.display = 'none';
+  
+  // Show header
+  const header = document.querySelector('.app-header');
+  if (header) header.style.display = 'flex';
 }
 
 function showRoomSelection() {
   authContainer.style.display = 'none';
   roomSelectionContainer.style.display = 'block';
   videoChatContainer.style.display = 'none';
+  
+  // Show header
+  const header = document.querySelector('.app-header');
+  if (header) header.style.display = 'flex';
 }
 
 function showVideoChat() {
   authContainer.style.display = 'none';
   roomSelectionContainer.style.display = 'none';
   videoChatContainer.style.display = 'block';
+  
+  // Hide header for fullscreen video experience
+  const header = document.querySelector('.app-header');
+  if (header) header.style.display = 'none';
+  
+  // Show app-shell as fullscreen
+  const appShell = document.querySelector('.app-shell');
+  if (appShell) {
+    appShell.style.padding = '0';
+    appShell.style.gap = '0';
+  }
+  
   if (chatToggle) chatToggle.style.display = 'inline-flex';
   if (reactionsPopover) reactionsPopover.style.display = 'none';
+  
+  // Show participant counter
+  updateParticipantCount();
+}
+
+// Update participant count badge
+function updateParticipantCount() {
+  const participantCountEl = document.getElementById('participant-count');
+  const participantCountText = document.getElementById('participant-count-text');
+  
+  if (!participantCountEl || !participantCountText) return;
+  
+  // Count: 1 (you) + remote peers
+  const totalCount = 1 + peerConnections.size;
+  
+  participantCountText.textContent = totalCount === 1 
+    ? '1 người' 
+    : `${totalCount} người`;
+  
+  // Show badge if in video call
+  if (videoChatContainer && videoChatContainer.style.display !== 'none') {
+    participantCountEl.style.display = 'flex';
+  }
 }

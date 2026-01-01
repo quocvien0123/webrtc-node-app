@@ -27,6 +27,9 @@ function createPeerConnection(userId) {
     if (isScreenTrack) {
       console.log(`[Track] This is a screen share track from ${userId}`);
       
+      // ✅ ENABLE SPOTLIGHT MODE FOR REMOTE SCREEN SHARE
+      enableSpotlightMode();
+      
       let screenStream = screenStreams.get(userId);
       if (!screenStream) {
         screenStream = new MediaStream();
@@ -34,7 +37,13 @@ function createPeerConnection(userId) {
       }
       screenStream.addTrack(track);
       
-      // Tạo screen share tile
+      // Create screen share tile IN SPOTLIGHT MAIN
+      const spotlightMain = document.querySelector('.spotlight-main');
+      if (!spotlightMain) {
+        console.error('[Track] No spotlight-main container');
+        return;
+      }
+      
       const screenTileId = `screen-share-tile-${userId}`;
       let screenTile = document.getElementById(screenTileId);
       
@@ -52,11 +61,25 @@ function createPeerConnection(userId) {
         video.id = `screen-video-${userId}`;
         video.autoplay = true;
         video.playsinline = true;
+        video.muted = false;
         video.srcObject = screenStream;
+        
+        // FORCE PLAY
+        video.play().catch(e => {
+          console.warn(`[Screen] Autoplay blocked, retrying for ${userId}:`, e);
+          setTimeout(() => video.play().catch(console.warn), 100);
+        });
+        
+        // ✅ ADD FULLSCREEN TOGGLE BUTTON
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'fullscreen-toggle';
+        fullscreenBtn.innerHTML = '<i data-lucide="maximize"></i>';
+        fullscreenBtn.onclick = () => toggleSpotlightFullscreen();
         
         tile.appendChild(labelEl);
         tile.appendChild(video);
-        videosContainer.appendChild(tile);
+        tile.appendChild(fullscreenBtn);
+        spotlightMain.appendChild(tile);
         
         console.log(`[Track] Created screen share tile for ${userId}`);
         lucide.createIcons();
@@ -64,6 +87,7 @@ function createPeerConnection(userId) {
         const video = document.getElementById(`screen-video-${userId}`);
         if (video) {
           video.srcObject = screenStream;
+          video.play().catch(console.warn);
         }
       }
       
@@ -72,6 +96,12 @@ function createPeerConnection(userId) {
         const tile = document.getElementById(screenTileId);
         if (tile) tile.remove();
         screenStreams.delete(userId);
+        
+        // ✅ DISABLE SPOTLIGHT MODE IF NO MORE SCREEN SHARES
+        const hasScreenShares = document.querySelector('.screen-share-tile');
+        if (!hasScreenShares) {
+          disableSpotlightMode();
+        }
       };
       
       return;
@@ -88,17 +118,40 @@ function createPeerConnection(userId) {
     stream.addTrack(track);
     console.log(`[Track] Camera stream for ${userId} now has ${stream.getTracks().length} tracks`);
     
-    // Tạo hoặc cập nhật camera tile
+    // ✅ TẠO CAMERA TILE - KIỂM TRA NẾU ĐANG SPOTLIGHT MODE
+    const container = document.getElementById('videos-container');
+    const isSpotlightActive = container?.classList.contains('spotlight-mode');
+    const targetContainer = isSpotlightActive 
+      ? document.getElementById('spotlight-sidebar') 
+      : container;
+    
     let video = videoElements.get(userId);
     if (!video) {
       const username = userNames.get(userId) || `User ${userId.slice(0, 6)}`;
-      video = createVideoTile(userId, stream, username);
+      video = createVideoTile(userId, stream, username, targetContainer);
     } else {
       video.srcObject = stream;
     }
     
-    if (video && video.paused) {
-      video.play().catch(e => console.warn(`[Track] Could not autoplay video for ${userId}:`, e));
+    // FORCE AUTOPLAY với retry
+    if (video) {
+      video.play().catch(e => {
+        console.warn(`[Track] Autoplay blocked for ${userId}, retrying:`, e);
+        let retries = 0;
+        const retryPlay = () => {
+          video.play()
+            .then(() => console.log(`[Track] ✅ Video playing for ${userId} after ${retries} retries`))
+            .catch(err => {
+              retries++;
+              if (retries < 3) {
+                setTimeout(retryPlay, 200 * retries);
+              } else {
+                console.error(`[Track] ❌ Failed to autoplay for ${userId} after 3 retries`);
+              }
+            });
+        };
+        setTimeout(retryPlay, 100);
+      });
     }
   };
   
@@ -106,6 +159,9 @@ function createPeerConnection(userId) {
   pc.onicecandidate = ({ candidate }) => {
     if (candidate) {
       socket.emit('webrtc_ice_candidate', { roomId, candidate, targetId: userId });
+      console.log(`[ICE] Sent candidate to ${userId}:`, candidate.candidate.split(' ')[7]); // Log candidate type
+    } else {
+      console.log(`[ICE] ✅ All candidates sent for ${userId}`);
     }
   };
   
@@ -160,7 +216,7 @@ function closePeerConnection(userId) {
   console.log(`[Peer ${userId}] Closed and cleaned up`);
 }
 
-function createVideoTile(userId, stream, label) {
+function createVideoTile(userId, stream, label, targetContainer) {
   const tile = document.createElement('div');
   tile.className = 'video-tile';
   tile.id = `video-tile-${userId}`;
@@ -173,14 +229,25 @@ function createVideoTile(userId, stream, label) {
   video.id = `video-${userId}`;
   video.autoplay = true;
   video.playsinline = true;
+  video.muted = false; // Không mute remote video
   video.srcObject = stream;
+  
+  // Thêm attributes để bypass autoplay policy
+  video.setAttribute('webkit-playsinline', 'true');
+  video.setAttribute('playsinline', 'true');
   
   tile.appendChild(labelEl);
   tile.appendChild(video);
-  videosContainer.appendChild(tile);
+  
+  // ✅ APPEND TO TARGET CONTAINER (sidebar nếu spotlight mode, container nếu không)
+  const container = targetContainer || document.getElementById('videos-container');
+  if (container) {
+    container.appendChild(tile);
+  }
+  
   videoElements.set(userId, video);
   
-  console.log(`[Video] Created tile for ${userId}`);
+  console.log(`[Video] Created tile for ${userId} in ${container?.id || 'container'}`);
   lucide.createIcons();
   return video;
 }

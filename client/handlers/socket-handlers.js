@@ -24,6 +24,7 @@ function setupSocketHandlers() {
     }
     
     updateUserList();
+    updateParticipantCount(); // ← CẬP NHẬT PARTICIPANT COUNT
 
     if (Array.isArray(groups)) {
       joinedGroups.clear();
@@ -54,6 +55,7 @@ function setupSocketHandlers() {
       userNames.set(userId, username);
     }
     updateUserList();
+    updateParticipantCount(); // ← CẬP NHẬT KHI CÓ NGƯỜI JOIN
   });
 
   socket.on('user_left', ({ userId, roomSize }) => {
@@ -61,6 +63,7 @@ function setupSocketHandlers() {
     closePeerConnection(userId);
     userNames.delete(userId);
     updateUserList();
+    updateParticipantCount(); // ← CẬP NHẬT KHI CÓ NGƯỜI LEAVE
   });
 
   // ===== WebRTC Signaling Events =====
@@ -80,6 +83,20 @@ function setupSocketHandlers() {
 
       console.log(`[Offer] Setting remote description from ${fromId}`);
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      
+      // ✅ XỬ LÝ PENDING ICE CANDIDATES NGAY SAU KHI SET REMOTE DESCRIPTION
+      const pendingCandidates = pendingIceCandidates.get(fromId);
+      if (pendingCandidates && pendingCandidates.length > 0) {
+        console.log(`[ICE] Processing ${pendingCandidates.length} queued candidates for ${fromId}`);
+        for (const candidate of pendingCandidates) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {
+            console.warn(`[ICE] Failed to add queued candidate:`, e);
+          }
+        }
+        pendingIceCandidates.delete(fromId); // Clear queue
+      }
       
       checkAndRemoveScreenTile(fromId, pc);
       
@@ -105,6 +122,20 @@ function setupSocketHandlers() {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       console.log(`[Answer] Applied from ${fromId}`);
       
+      // ✅ XỬ LÝ PENDING ICE CANDIDATES SAU KHI NHẬN ANSWER
+      const pendingCandidates = pendingIceCandidates.get(fromId);
+      if (pendingCandidates && pendingCandidates.length > 0) {
+        console.log(`[ICE] Processing ${pendingCandidates.length} queued candidates for ${fromId}`);
+        for (const candidate of pendingCandidates) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {
+            console.warn(`[ICE] Failed to add queued candidate:`, e);
+          }
+        }
+        pendingIceCandidates.delete(fromId);
+      }
+      
       checkAndRemoveScreenTile(fromId, pc);
     } catch (error) {
       console.error(`[Answer] Error from ${fromId}:`, error);
@@ -120,10 +151,16 @@ function setupSocketHandlers() {
       }
 
       if (pc.remoteDescription) {
+        // ✅ CÓ REMOTE DESCRIPTION → THÊM NGAY
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
         console.log(`[ICE] Added candidate from ${fromId}`);
       } else {
-        console.log(`[ICE] Queued candidate from ${fromId} (no remote description yet)`);
+        // ⏳ CHƯA CÓ REMOTE DESCRIPTION → QUEUE LẠI
+        if (!pendingIceCandidates.has(fromId)) {
+          pendingIceCandidates.set(fromId, []);
+        }
+        pendingIceCandidates.get(fromId).push(candidate);
+        console.log(`[ICE] Queued candidate from ${fromId} (waiting for remote description)`);
       }
     } catch (error) {
       console.error(`[ICE] Error from ${fromId}:`, error);
@@ -144,10 +181,16 @@ function setupSocketHandlers() {
   socket.on('private_message', ({ text, ts, from, usernameFrom, usernameTo }) => {
     const isSelf = from === socket.id;
     const senderName = isSelf ? (currentUser?.username || 'Tôi') : (usernameFrom || userNames.get(from) || `User ${String(from).slice(0,6)}`);
-    const prefix = isSelf ? `[PM -> ${usernameTo || '...'}] ` : '[PM] ';
+    
+    // ✅ ADD BADGE for received private message
     if (!isSelf) {
-      appendChatMessage(`${prefix}${text || ''}`, senderName, ts || Date.now(), false);
+      appendChatMessage(text || '', senderName, ts || Date.now(), false, {
+        type: 'private',
+        icon: 'lock',
+        text: 'Riêng tư'
+      });
     }
+    
     if (!isChatOpen && !isSelf) {
       unreadCount += 1;
       updateChatBadge();
@@ -157,9 +200,16 @@ function setupSocketHandlers() {
   socket.on('group_message', ({ text, ts, from, group, username }) => {
     const isSelf = from === socket.id;
     const senderName = isSelf ? (currentUser?.username || 'Tôi') : (username || userNames.get(from) || `User ${String(from).slice(0,6)}`);
+    
+    // ✅ ADD BADGE for group message
     if (!isSelf) {
-      appendChatMessage(`[Group:${group || '?'}] ${text || ''}`, senderName, ts || Date.now(), false);
+      appendChatMessage(text || '', senderName, ts || Date.now(), false, {
+        type: 'group',
+        icon: 'hash',
+        text: group || '?'
+      });
     }
+    
     if (!isChatOpen && !isSelf) {
       unreadCount += 1;
       updateChatBadge();
