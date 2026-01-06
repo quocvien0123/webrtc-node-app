@@ -1,5 +1,7 @@
 // screen-share.js - Screen sharing functionality
 
+const remoteScreenStreams = new Map(); // userId -> stream
+
 async function pickDesktopSource() {
   if (!hasElectronDesktop) throw new Error('desktopCapturer bridge missing');
   const sources = await window.electronAPI.getDesktopSources({ 
@@ -89,7 +91,7 @@ async function startScreenShare() {
     const screenTrack = screenStream.getVideoTracks()[0];
     try { screenTrack.contentHint = 'detail'; } catch {}
 
-    // ✅ CHUYỂN SANG SPOTLIGHT MODE
+    //  CHUYỂN SANG SPOTLIGHT MODE
     enableSpotlightMode();
 
     // Create screen share tile IN SPOTLIGHT MAIN
@@ -113,7 +115,7 @@ async function startScreenShare() {
     video.playsinline = true;
     video.srcObject = screenStream;
     
-    // ✅ THÊM FULLSCREEN TOGGLE BUTTON
+    //  THÊM FULLSCREEN TOGGLE BUTTON
     const fullscreenBtn = document.createElement('button');
     fullscreenBtn.className = 'fullscreen-toggle';
     fullscreenBtn.innerHTML = '<i data-lucide="maximize"></i>';
@@ -207,13 +209,13 @@ function stopScreenShare() {
     socket.emit('screen_share_stopped', { roomId });
   }
   
-  // ✅ TẮT SPOTLIGHT MODE
+  //  TẮT SPOTLIGHT MODE
   disableSpotlightMode();
   
   console.log('[Share] Screen share removed, camera still active');
 }
 
-// ✅ SPOTLIGHT MODE FUNCTIONS
+//  SPOTLIGHT MODE FUNCTIONS
 function enableSpotlightMode() {
   const container = document.getElementById('videos-container');
   if (!container) return;
@@ -289,6 +291,24 @@ function toggleSpotlightFullscreen() {
       lucide.createIcons();
     }
     console.log('[Spotlight] Entered fullscreen');
+  }
+}
+
+//  HÀM XỬ LÝ REMOTE SCREEN TILE
+function removeRemoteScreenTile(userId) {
+  //  SỬA: Xóa screen tile của người khác bằng đúng ID
+  const screenTileId = `screen-share-tile-${userId}`;
+  const screenTile = document.getElementById(screenTileId);
+  
+  if (screenTile) {
+    console.log(`[Remote Screen] Removing screen tile for ${userId}`);
+    screenTile.remove();
+  }
+  
+  // Xóa stream từ tracking
+  if (remoteScreenStreams.has(userId)) {
+    remoteScreenStreams.delete(userId);
+    console.log(`[Remote Screen] Cleaned up stream for ${userId}`);
   }
 }
 

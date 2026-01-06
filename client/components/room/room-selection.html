@@ -1,13 +1,127 @@
 <main id="room-selection-container" class="card room-card" style="display:none;">
-  <h1>WebRTC Video Conference</h1>
-  <p class="subtitle">Nhập mã phòng để bắt đầu cuộc gọi 1–1 bảo mật.</p>
-  <label class="input-label" for="room-input">Room ID</label>
-  <div class="input-row">
-    <input id="room-input" type="text" placeholder="Ví dụ: vku-12345" />
-    <button id="connect-button" class="primary-btn">KẾT NỐI</button>
+  <!-- ✅ REDESIGN: Header Section -->
+  <div class="room-header">
+    <div class="room-icon">
+      <i data-lucide="video"></i>
+    </div>
+    <h1>Tạo hoặc tham gia cuộc họp</h1>
+    <p class="subtitle">Kết nối với đồng đội một cách dễ dàng và bảo mật</p>
+  </div>
+  
+  <!-- ✅ REDESIGN: Modern Tabs -->
+  <div class="room-tabs-container">
+    <div class="room-tabs">
+      <button class="room-tab active" data-tab="join">
+        <i data-lucide="log-in"></i>
+        <span>Tham gia</span>
+      </button>
+      <button class="room-tab" data-tab="create">
+        <i data-lucide="plus-circle"></i>
+        <span>Tạo mới</span>
+      </button>
+    </div>
   </div>
 
-  <p class="hint">
-    Bạn có thể tự đặt room ID, sau đó gửi cho người khác để join cùng phòng.
-  </p>
+  <!-- ✅ REDESIGN: JOIN ROOM TAB -->
+  <div id="join-room-tab" class="room-tab-content active">
+    <div class="input-group">
+      <label class="input-label">
+        <i data-lucide="hash"></i>
+        Mã phòng
+      </label>
+      <div class="input-wrapper">
+        <input id="room-input" type="text" placeholder="Nhập mã phòng (ví dụ: happy-tiger-123)" />
+        <button id="connect-button" class="primary-btn">
+          <i data-lucide="arrow-right"></i>
+          Kết nối
+        </button>
+      </div>
+    </div>
+    <div class="info-card">
+      <i data-lucide="info"></i>
+      <p>Nhập mã phòng mà bạn nhận được từ người tổ chức cuộc họp</p>
+    </div>
+  </div>
+
+  <!-- ✅ REDESIGN: CREATE ROOM TAB -->
+  <div id="create-room-tab" class="room-tab-content">
+    <div class="create-options">
+      <div class="option-card active" data-mode="quick">
+        <div class="option-icon">⚡</div>
+        <div class="option-content">
+          <h3>Tạo nhanh</h3>
+          <p>Tạo phòng với mã ngẫu nhiên</p>
+        </div>
+        <div class="option-check">
+          <i data-lucide="check-circle"></i>
+        </div>
+      </div>
+      <div class="option-card" data-mode="custom">
+        <div class="option-icon">✏️</div>
+        <div class="option-content">
+          <h3>Tùy chỉnh</h3>
+          <p>Đặt tên phòng theo ý muốn</p>
+        </div>
+        <div class="option-check">
+          <i data-lucide="circle"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom Room Name Input (Hidden by default) -->
+    <div id="custom-room-input-group" class="input-group" style="display: none;">
+      <label class="input-label">
+        <i data-lucide="edit-3"></i>
+        Tên phòng tùy chỉnh
+      </label>
+      <input id="new-room-input" type="text" placeholder="Ví dụ: meeting-vku-2025" class="modern-input" />
+    </div>
+
+    <button id="create-room-button" class="primary-btn create-btn">
+      <i data-lucide="sparkles"></i>
+      <span>Tạo phòng ngay</span>
+    </button>
+
+    <!--  REDESIGN: INVITE LINK SECTION -->
+    <div id="invite-link-section" class="invite-section" style="display: none;">
+      <div class="success-animation">
+        <div class="success-checkmark">
+          <i data-lucide="check-circle"></i>
+        </div>
+        <h3>Phòng đã được tạo!</h3>
+        <p>Chia sẻ link bên dưới để mời người khác tham gia</p>
+      </div>
+
+      <div class="invite-link-card">
+        <div class="link-header">
+          <i data-lucide="link-2"></i>
+          <span>Link mời</span>
+          <span class="link-badge">Sao chép để chia sẻ</span>
+        </div>
+        <div class="link-display">
+          <input id="invite-link" type="text" readonly />
+          <button id="copy-link-button" class="copy-btn" title="Sao chép link">
+            <i data-lucide="copy"></i>
+            <span>Sao chép</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button id="join-created-room-button" class="primary-btn join-btn">
+          <i data-lucide="video"></i>
+          <span>Vào phòng ngay</span>
+        </button>
+        <button id="create-another-button" class="secondary-btn">
+          <i data-lucide="refresh-cw"></i>
+          <span>Tạo phòng khác</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <i data-lucide="shield-check"></i>
+      <p>Phòng họp của bạn được mã hóa đầu cuối và hoàn toàn bảo mật</p>
+    </div>
+  </div>
 </main>

@@ -16,6 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/", express.static(path.join(__dirname, "client")));
 
 // Kết nối MongoDB
+//tcp ://username:password@host:port/database
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/webrtc-meet';
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
@@ -57,6 +58,10 @@ const io = new Server(server, {
 // Lưu thông tin các rooms và users
 // rooms: Map<roomId, Map<socketId, {username, userId}>>
 const rooms = new Map();
+
+//  THÊM: Track room owners
+// roomOwners: Map<roomId, ownerSocketId>
+const roomOwners = new Map();
 
 // groups: Map<roomId, Map<groupName, { ownerSocketId: string, members: Set<string> }>>
 const groups = new Map();
@@ -134,6 +139,11 @@ io.on("connection", (socket) => {
       rooms.set(roomId, new Map());
     }
     rooms.get(roomId).set(socket.id, { username, userId });
+
+    // ✅ THÊM: Set owner if first user in room
+    if (!roomOwners.has(roomId)) {
+      roomOwners.set(roomId, socket.id);
+    }
     
     // Gửi danh sách users hiện tại trong phòng (bao gồm username)
     const usersInRoom = Array.from(rooms.get(roomId).entries())
@@ -434,8 +444,15 @@ io.on("connection", (socket) => {
   // Thông báo dừng chia sẻ màn hình: chuyển tiếp cho các client khác trong phòng
   socket.on('screen_share_stopped', ({ roomId }) => {
     try {
-      socket.to(roomId).emit('screen_share_stopped', { userId: socket.id, ts: Date.now() });
-      console.log(`[ScreenShare] ${socket.id} stopped in room ${roomId}`);
+      //  Kiểm tra người dùng có trong room không
+      if (!roomId || socket.data.roomId !== roomId) {
+        console.log(`[ScreenShare] Invalid room for user ${socket.id}`);
+        return;
+      }
+      
+      //  Gửi đến TẤT CẢ người trong phòng (không chỉ những người khác)
+      io.to(roomId).emit('screen_share_stopped', { userId: socket.id, ts: Date.now() });
+      console.log(`[ScreenShare] ${socket.id} stopped sharing in room ${roomId}`);
     } catch (e) {
       console.error('screen_share_stopped error', e);
     }
@@ -453,6 +470,79 @@ io.on("connection", (socket) => {
         handleUserLeave(socket, roomId);
       }
     });
+  });
+
+  // ===== WHITEBOARD SOCKET HANDLERS =====
+  socket.on('wb_draw_start', ({ roomId, x, y, tool, color, width }) => {
+    try {
+      if (!roomId || socket.data.roomId !== roomId) return;
+      socket.to(roomId).emit('wb_draw_start', { 
+        userId: socket.id, 
+        x, y, tool, color, width, 
+        ts: Date.now() 
+      });
+    } catch (e) {
+      console.error('wb_draw_start error', e);
+    }
+  });
+
+  socket.on('wb_draw', ({ roomId, x1, y1, x2, y2, color, width, tool }) => {
+    try {
+      if (!roomId || socket.data.roomId !== roomId) return;
+      socket.to(roomId).emit('wb_draw', { 
+        x1, y1, x2, y2, color, width, tool 
+      });
+    } catch (e) {
+      console.error('wb_draw error', e);
+    }
+  });
+
+  socket.on('wb_shape', ({ roomId, type, x1, y1, x2, y2, color, width }) => {
+    try {
+      if (!roomId || socket.data.roomId !== roomId) return;
+      socket.to(roomId).emit('wb_shape', { 
+        type, x1, y1, x2, y2, color, width 
+      });
+    } catch (e) {
+      console.error('wb_shape error', e);
+    }
+  });
+
+  socket.on('wb_draw_end', ({ roomId }) => {
+    try {
+      if (!roomId || socket.data.roomId !== roomId) return;
+      socket.to(roomId).emit('wb_draw_end', { userId: socket.id });
+    } catch (e) {
+      console.error('wb_draw_end error', e);
+    }
+  });
+
+  socket.on('wb_clear', ({ roomId }) => {
+    try {
+      if (!roomId || socket.data.roomId !== roomId) return;
+      socket.to(roomId).emit('wb_clear', { userId: socket.id, ts: Date.now() });
+      console.log(`[Whiteboard] ${socket.id} cleared whiteboard in room ${roomId}`);
+    } catch (e) {
+      console.error('wb_clear error', e);
+    }
+  });
+
+  socket.on('wb_undo', ({ roomId }) => {
+    try {
+      if (!roomId || socket.data.roomId !== roomId) return;
+      socket.to(roomId).emit('wb_undo', { userId: socket.id });
+    } catch (e) {
+      console.error('wb_undo error', e);
+    }
+  });
+
+  socket.on('wb_redo', ({ roomId }) => {
+    try {
+      if (!roomId || socket.data.roomId !== roomId) return;
+      socket.to(roomId).emit('wb_redo', { userId: socket.id });
+    } catch (e) {
+      console.error('wb_redo error', e);
+    }
   });
 });
 
@@ -487,6 +577,21 @@ function handleUserLeave(socket, roomId) {
   if (rooms.has(roomId)) {
     rooms.get(roomId).delete(socket.id);
     const roomSize = rooms.get(roomId).size;
+
+    // ✅  Check if user is owner and delete room if true
+    if (roomOwners.get(roomId) === socket.id) {
+      console.log(`[Room ${roomId}] Owner (${socket.id}) left, room deleted`);
+      
+      // ✅ Send notification to all remaining users before closing room
+      io.to(roomId).emit('room_closed', { 
+        reason: 'Người tạo phòng đã rời đi',
+        closedAt: Date.now() 
+      });
+      
+      roomOwners.delete(roomId);
+      rooms.delete(roomId);
+      return;
+    }
     
     // Xóa room nếu không còn ai
     if (roomSize === 0) {
@@ -503,7 +608,7 @@ function handleUserLeave(socket, roomId) {
     console.log(`[Room ${roomId}] User ${socket.id} left. Remaining: ${roomSize}`);
   }
 }
-
+// tcp/ip 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on ${proto}://0.0.0.0:${PORT}`);

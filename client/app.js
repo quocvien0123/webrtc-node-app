@@ -28,6 +28,22 @@ async function initApp() {
   console.log('[Init] Application ready');
 }
 
+// ===== Initialize whiteboard when joining room =====
+function initWhiteboardOnJoin() {
+  if (window.whiteboardHandlers && typeof window.whiteboardHandlers.init === 'function') {
+    window.whiteboardHandlers.init();
+    console.log('[Whiteboard] Initialized on room join');
+  }
+}
+
+// ===== Cleanup whiteboard when leaving room =====
+function cleanupWhiteboardOnLeave() {
+  if (window.whiteboardHandlers && typeof window.whiteboardHandlers.cleanup === 'function') {
+    window.whiteboardHandlers.cleanup();
+    console.log('[Whiteboard] Cleaned up on room leave');
+  }
+}
+
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initApp);

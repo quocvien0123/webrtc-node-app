@@ -27,7 +27,7 @@ function createPeerConnection(userId) {
     if (isScreenTrack) {
       console.log(`[Track] This is a screen share track from ${userId}`);
       
-      // ✅ ENABLE SPOTLIGHT MODE FOR REMOTE SCREEN SHARE
+      //  ENABLE SPOTLIGHT MODE FOR REMOTE SCREEN SHARE
       enableSpotlightMode();
       
       let screenStream = screenStreams.get(userId);
@@ -70,7 +70,7 @@ function createPeerConnection(userId) {
           setTimeout(() => video.play().catch(console.warn), 100);
         });
         
-        // ✅ ADD FULLSCREEN TOGGLE BUTTON
+        //  ADD FULLSCREEN TOGGLE BUTTON
         const fullscreenBtn = document.createElement('button');
         fullscreenBtn.className = 'fullscreen-toggle';
         fullscreenBtn.innerHTML = '<i data-lucide="maximize"></i>';
@@ -97,7 +97,7 @@ function createPeerConnection(userId) {
         if (tile) tile.remove();
         screenStreams.delete(userId);
         
-        // ✅ DISABLE SPOTLIGHT MODE IF NO MORE SCREEN SHARES
+        //  DISABLE SPOTLIGHT MODE IF NO MORE SCREEN SHARES
         const hasScreenShares = document.querySelector('.screen-share-tile');
         if (!hasScreenShares) {
           disableSpotlightMode();
@@ -118,7 +118,7 @@ function createPeerConnection(userId) {
     stream.addTrack(track);
     console.log(`[Track] Camera stream for ${userId} now has ${stream.getTracks().length} tracks`);
     
-    // ✅ TẠO CAMERA TILE - KIỂM TRA NẾU ĐANG SPOTLIGHT MODE
+    //  TẠO CAMERA TILE - KIỂM TRA NẾU ĐANG SPOTLIGHT MODE
     const container = document.getElementById('videos-container');
     const isSpotlightActive = container?.classList.contains('spotlight-mode');
     const targetContainer = isSpotlightActive 
@@ -161,7 +161,7 @@ function createPeerConnection(userId) {
       socket.emit('webrtc_ice_candidate', { roomId, candidate, targetId: userId });
       console.log(`[ICE] Sent candidate to ${userId}:`, candidate.candidate.split(' ')[7]); // Log candidate type
     } else {
-      console.log(`[ICE] ✅ All candidates sent for ${userId}`);
+      console.log(`[ICE]  All candidates sent for ${userId}`);
     }
   };
   
@@ -169,7 +169,7 @@ function createPeerConnection(userId) {
   pc.oniceconnectionstatechange = () => {
     console.log(`[ICE ${userId}]`, pc.iceConnectionState);
     if (pc.iceConnectionState === 'connected') {
-      console.log(`[ICE ${userId}] ✅ Connection established!`);
+      console.log(`[ICE ${userId}]  Connection established!`);
     }
     if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
       console.warn(`[Peer ${userId}] Connection lost`);
@@ -177,9 +177,9 @@ function createPeerConnection(userId) {
   };
   
   pc.onconnectionstatechange = () => {
-    console.log(`[PC ${userId}]`, pc.connectionState);
+    console.log(`[PC ${userId}]`, pc.connectioState);
     if (pc.connectionState === 'connected') {
-      console.log(`[PC ${userId}] ✅ Peer connection established!`);
+      console.log(`[PC ${userId}]  Peer connection established!`);
     }
   };
   
@@ -229,9 +229,9 @@ function createVideoTile(userId, stream, label, targetContainer) {
   video.id = `video-${userId}`;
   video.autoplay = true;
   video.playsinline = true;
-  video.muted = false; // Không mute remote video
+  video.muted = false; // Không mute remote 
   video.srcObject = stream;
-  
+  video
   // Thêm attributes để bypass autoplay policy
   video.setAttribute('webkit-playsinline', 'true');
   video.setAttribute('playsinline', 'true');
@@ -239,7 +239,7 @@ function createVideoTile(userId, stream, label, targetContainer) {
   tile.appendChild(labelEl);
   tile.appendChild(video);
   
-  // ✅ APPEND TO TARGET CONTAINER (sidebar nếu spotlight mode, container nếu không)
+  //  APPEND TO TARGET CONTAINER (sidebar nếu spotlight mode, container nếu không)
   const container = targetContainer || document.getElementById('videos-container');
   if (container) {
     container.appendChild(tile);
@@ -267,6 +267,7 @@ function checkAndRemoveScreenTile(userId, pc) {
   
   console.log(`[Check] ${userId} has ${videoReceivers.length} video receivers`);
   
+  // Nếu chỉ có 1 video track (camera) hoặc không có track nào, xóa screen tile
   if (videoReceivers.length <= 1) {
     const screenTileId = `screen-share-tile-${userId}`;
     const screenTile = document.getElementById(screenTileId);
@@ -274,6 +275,43 @@ function checkAndRemoveScreenTile(userId, pc) {
       console.log(`[Check] Removing screen tile for ${userId} (no longer sharing)`);
       screenTile.remove();
       screenStreams.delete(userId);
+      
+      //  Tắt spotlight mode nếu không còn screen share nào
+      const hasAnyScreenShares = document.querySelector('.screen-share-tile');
+      if (!hasAnyScreenShares) {
+        console.log('[Check] No more screen shares, disabling spotlight mode');
+        disableSpotlightMode();
+      }
     }
+  }
+}
+
+//  Function để xóa remote screen tile khi nhận event từ server
+function removeRemoteScreenTileFromServer(userId) {
+  console.log(`[RemoteScreen] Removing screen tile for ${userId} (server notification)`);
+  
+  const screenTileId = `screen-share-tile-${userId}`;
+  const screenTile = document.getElementById(screenTileId);
+  
+  if (screenTile) {
+    screenTile.remove();
+    console.log(`[RemoteScreen]  Removed screen tile for ${userId}`);
+  }
+  
+  // Xóa screen stream
+  const screenStream = screenStreams.get(userId);
+  if (screenStream) {
+    screenStream.getTracks().forEach(track => {
+      track.stop();
+      console.log(`[RemoteScreen] Stopped track for ${userId}`);
+    });
+    screenStreams.delete(userId);
+  }
+  
+  //  Tắt spotlight mode nếu không còn screen share nào
+  const hasAnyScreenShares = document.querySelector('.screen-share-tile');
+  if (!hasAnyScreenShares) {
+    console.log('[RemoteScreen] No more screen shares, disabling spotlight mode');
+    disableSpotlightMode();
   }
 }

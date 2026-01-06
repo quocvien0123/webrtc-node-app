@@ -2,6 +2,8 @@
 
 // ===== SOCKET.IO CONNECTION =====
 const socket = io();
+// ✅ Export socket ra global scope để các module khác sử dụng
+window.socket = socket;
 
 // ===== ELECTRON DETECTION =====
 const hasElectronDesktop = Boolean(window.electronAPI?.desktopCapturerAvailable);
@@ -185,6 +187,14 @@ function showVideoChat() {
   
   // Show participant counter
   updateParticipantCount();
+  
+  //THÊM: Initialize whiteboard when entering video chat
+  if (window.whiteboardHandlers && typeof window.whiteboardHandlers.init === 'function') {
+    setTimeout(() => {
+      window.whiteboardHandlers.init();
+      console.log('[Whiteboard] Initialized on room join');
+    }, 500); // Delay to ensure DOM is ready
+  }
 }
 
 // Update participant count badge
@@ -197,9 +207,14 @@ function updateParticipantCount() {
   // Count: 1 (you) + remote peers
   const totalCount = 1 + peerConnections.size;
   
-  participantCountText.textContent = totalCount === 1 
-    ? '1 người' 
-    : `${totalCount} người`;
+  // Hiển thị rõ ràng số người trong cuộc gọi
+  if (totalCount === 1) {
+    participantCountText.textContent = 'Chỉ có bạn';
+  } else if (totalCount === 2) {
+    participantCountText.textContent = '2 người đang trong cuộc gọi';
+  } else {
+    participantCountText.textContent = `${totalCount} người đang trong cuộc gọi`;
+  }
   
   // Show badge if in video call
   if (videoChatContainer && videoChatContainer.style.display !== 'none') {

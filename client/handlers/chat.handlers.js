@@ -23,7 +23,7 @@ function formatTime(ts) {
   return `${hours}:${minutes}`;
 }
 
-// ✅ REDESIGNED: Append chat message with avatar and header
+// REDESIGNED: Append chat message with avatar and header
 function appendChatMessage(text, senderName, ts = Date.now(), isSelf = false, badge = null) {
   const line = document.createElement('div');
   line.className = `msg ${isSelf ? 'me' : 'peer'}`;
@@ -79,7 +79,7 @@ function appendChatMessage(text, senderName, ts = Date.now(), isSelf = false, ba
   }
 }
 
-// ✅ REDESIGNED: System message
+// REDESIGNED: System message
 function appendSystemMessage(text, ts = Date.now()) {
   const line = document.createElement('div');
   line.className = 'msg system';
@@ -115,7 +115,7 @@ function sendChat() {
       appendSystemMessage('Vui lòng chọn người nhận trước khi gửi tin nhắn riêng.');
       return;
     }
-    // ✅ ADD BADGE for private message
+    //  ADD BADGE for private message
     appendChatMessage(text, myName, ts, true, {
       type: 'private',
       icon: 'lock',
@@ -136,7 +136,7 @@ function sendChat() {
       appendSystemMessage('Vui lòng chọn nhóm trước khi gửi tin nhắn nhóm.');
       return;
     }
-    // ✅ ADD BADGE for group message
+    //  ADD BADGE for group message
     appendChatMessage(text, myName, ts, true, {
       type: 'group',
       icon: 'hash',

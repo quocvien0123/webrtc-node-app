@@ -1,0 +1,93 @@
+<!-- Whiteboard FAB (Floating Action Button) -->
+<button class="whiteboard-fab" id="whiteboard-toggle" style="display: none;">
+  <i data-lucide="pen-tool"></i>
+</button>
+
+<!-- Whiteboard Container -->
+<div class="whiteboard-container" id="whiteboard-container">
+  <!-- Header -->
+  <div class="whiteboard-header">
+    <h3>
+      <i data-lucide="pen-tool"></i>
+      Bảng Trắng
+    </h3>
+    <div class="whiteboard-actions">
+      <button class="icon-btn" id="wb-minimize" data-tooltip="Thu nhỏ">
+        <i data-lucide="minimize-2"></i>
+      </button>
+      <button class="icon-btn" id="wb-close" data-tooltip="Đóng">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="whiteboard-toolbar">
+    <!-- Drawing Tools -->
+    <div class="toolbar-group">
+      <span class="toolbar-label">Công cụ:</span>
+      <button class="tool-btn active" data-tool="pen" data-tooltip="Bút vẽ">
+        <i data-lucide="pen-tool"></i>
+      </button>
+      <button class="tool-btn" data-tool="eraser" data-tooltip="Tẩy">
+        <i data-lucide="eraser"></i>
+      </button>
+      <button class="tool-btn" data-tool="line" data-tooltip="Đường thẳng">
+        <i data-lucide="minus"></i>
+      </button>
+      <button class="tool-btn" data-tool="rectangle" data-tooltip="Hình chữ nhật">
+        <i data-lucide="square"></i>
+      </button>
+      <button class="tool-btn" data-tool="circle" data-tooltip="Hình tròn">
+        <i data-lucide="circle"></i>
+      </button>
+    </div>
+
+    <!-- Color Picker -->
+    <div class="toolbar-group">
+      <span class="toolbar-label">Màu:</span>
+      <input type="color" id="color-picker" value="#000000">
+      <div class="color-presets">
+        <button class="color-preset" data-color="#000000" style="background: #000000;"></button>
+        <button class="color-preset" data-color="#ef4444" style="background: #ef4444;"></button>
+        <button class="color-preset" data-color="#22c55e" style="background: #22c55e;"></button>
+        <button class="color-preset" data-color="#3b82f6" style="background: #3b82f6;"></button>
+        <button class="color-preset" data-color="#eab308" style="background: #eab308;"></button>
+      </div>
+    </div>
+
+    <!-- Line Width -->
+    <div class="toolbar-group">
+      <span class="toolbar-label">Độ dày:</span>
+      <input type="range" id="line-width" min="1" max="20" value="3">
+      <span id="line-width-value">3</span>
+    </div>
+
+    <!-- Actions -->
+    <div class="toolbar-group toolbar-actions">
+      <button class="action-btn" id="wb-undo" data-tooltip="Hoàn tác">
+        <i data-lucide="undo"></i>
+      </button>
+      <button class="action-btn" id="wb-redo" data-tooltip="Làm lại">
+        <i data-lucide="redo"></i>
+      </button>
+      <button class="action-btn" id="wb-clear" data-tooltip="Xóa tất cả">
+        <i data-lucide="trash-2"></i>
+      </button>
+      <button class="action-btn" id="wb-save" data-tooltip="Lưu ảnh">
+        <i data-lucide="download"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div class="canvas-container">
+    <canvas id="whiteboard-canvas"></canvas>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="whiteboard-status">
+    <span id="wb-status-text">Sẵn sàng</span>
+    <span id="wb-users-drawing">0 người đang vẽ</span>
+  </div>
+</div>

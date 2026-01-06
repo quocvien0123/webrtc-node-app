@@ -66,6 +66,34 @@ function setupSocketHandlers() {
     updateParticipantCount(); // ← CẬP NHẬT KHI CÓ NGƯỜI LEAVE
   });
 
+  // ✅ THÊM: Listen for room closed event when owner leaves
+  socket.on('room_closed', ({ reason }) => {
+    console.log(`[Room] Room closed: ${reason}`);
+    alert(`Phòng đã đóng. Lý do: ${reason || 'Người tạo phòng đã rời đi'}`);
+    
+    // Close all peer connections
+    peerConnections.forEach((pc, userId) => {
+      closePeerConnection(userId);
+    });
+    
+    // Stop recording
+    if (isRecording) {
+      stopRecording();
+    }
+    
+    // Stop local stream
+    if (localStream) {
+      localStream.getTracks().forEach(t => t.stop());
+      localStream = null;
+    }
+    
+    // Clear video
+    localVideo.srcObject = null;
+    
+    // Reload page to go back to room selection
+    window.location.reload();
+  });
+
   // ===== WebRTC Signaling Events =====
   socket.on('webrtc_offer', async ({ sdp, fromId }) => {
     console.log(`[Offer] Received from ${fromId}`);
@@ -253,14 +281,8 @@ function setupSocketHandlers() {
 
   // ===== Screen Share Events =====
   socket.on('screen_share_stopped', ({ userId }) => {
-    const screenTileId = `screen-share-tile-${userId}`;
-    const screenTile = document.getElementById(screenTileId);
-    if (screenTile) {
-      console.log(`[Remote] ${userId} stopped sharing, removing screen tile`);
-      screenTile.remove();
-    }
-    if (screenStreams.has(userId)) {
-      screenStreams.delete(userId);
-    }
+    console.log(`[ScreenShare] ${userId} stopped sharing screen`);
+    // ✅ SỬA: Gọi hàm từ webrtc.js thay vì screen-share.handlers.js
+    removeRemoteScreenTileFromServer(userId);
   });
 }
