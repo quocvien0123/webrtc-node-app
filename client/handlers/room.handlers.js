@@ -1,6 +1,6 @@
 // room.js - Room management (join, leave)
 
-// ✅ THÊM: Generate random room ID
+//  Generate random room ID
 function generateRoomId() {
   const adjectives = ['happy', 'sunny', 'clever', 'brave', 'calm', 'bright', 'swift', 'cool', 'wise', 'kind'];
   const nouns = ['tiger', 'eagle', 'dolphin', 'panda', 'wolf', 'lion', 'hawk', 'bear', 'fox', 'owl'];

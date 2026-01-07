@@ -7,23 +7,19 @@ let recordingAnimationId = null;
 let recordingAudioContext = null;
 let recordingAudioDestination = null;
 
-// ✅ NÂNG CẤP: Ghi toàn bộ cuộc họp bằng Canvas + Audio mixing
 function startRecording() {
   if (isRecording) return;
   
   try {
     console.log('[Recording] Starting canvas-based recording...');
     
-    // ===== BƯỚC 1: TẠO CANVAS ĐỂ VẼ VIDEO =====
     recordingCanvas = document.createElement('canvas');
     recordingCanvas.width = 1920;  // Full HD
     recordingCanvas.height = 1080;
     recordingContext = recordingCanvas.getContext('2d');
     
-    // ===== BƯỚC 2: THU THẬP TẤT CẢ VIDEO ELEMENTS =====
     const videoElements = [];
     
-    // ✅ FIX: Lấy local video đúng cách
     const localVideo = document.getElementById('local-video');
     if (localVideo && localVideo.srcObject && localVideo.readyState >= 2) {
       videoElements.push({
@@ -40,7 +36,6 @@ function startRecording() {
       });
     }
     
-    // ✅ FIX: Lấy tất cả remote videos từ video tiles
     const allVideoTiles = document.querySelectorAll('.video-tile');
     console.log(`[Recording] Found ${allVideoTiles.length} video tiles`);
     
@@ -56,7 +51,6 @@ function startRecording() {
       }
     });
     
-    // ✅ FIX: Lấy screen share videos
     const screenShareTiles = document.querySelectorAll('.screen-share-tile');
     console.log(`[Recording] Found ${screenShareTiles.length} screen share tiles`);
     
@@ -89,7 +83,6 @@ function startRecording() {
         
         const count = videoElements.length;
         
-        // ✅ Vẽ video với error handling
         if (count === 1) {
           // 1 video: Fullscreen
           const { video } = videoElements[0];
@@ -140,18 +133,14 @@ function startRecording() {
           });
         }
         
-        // ✅ Vẽ overlay info
-        // Background cho text
         recordingContext.fillStyle = 'rgba(0, 0, 0, 0.7)';
         recordingContext.fillRect(10, 10, 300, 50);
         
-        // Vẽ timestamp
         recordingContext.fillStyle = '#FF0000';
         recordingContext.font = 'bold 28px Arial';
         const timeStr = new Date().toLocaleTimeString('vi-VN');
         recordingContext.fillText(`🔴 REC ${timeStr}`, 20, 45);
         
-        // Vẽ số lượng videos
         recordingContext.fillStyle = '#FFFFFF';
         recordingContext.font = '18px Arial';
         recordingContext.fillText(`${count} streams`, recordingCanvas.width - 150, 40);
@@ -163,23 +152,20 @@ function startRecording() {
       recordingAnimationId = requestAnimationFrame(drawVideosToCanvas);
     }
     
-    // ✅ Đợi 500ms để videos render
     setTimeout(() => {
       console.log('[Recording] Starting canvas drawing...');
       drawVideosToCanvas();
     }, 500);
     
-    // ===== BƯỚC 4: LẤY VIDEO STREAM TỪ CANVAS =====
     const canvasStream = recordingCanvas.captureStream(30); // 30 FPS
     console.log('[Recording] Canvas stream created');
     
-    // ===== BƯỚC 5: THU THẬP VÀ TRỘN TẤT CẢ AUDIO =====
     recordingAudioContext = new (window.AudioContext || window.webkitAudioContext)();
     recordingAudioDestination = recordingAudioContext.createMediaStreamDestination();
     
     let audioCount = 0;
     
-    // ✅ Mix local audio
+    
     if (localStream) {
       const audioTracks = localStream.getAudioTracks();
       if (audioTracks.length > 0) {
@@ -194,7 +180,7 @@ function startRecording() {
       }
     }
     
-    // ✅ Mix remote audio
+    
     if (remoteStreams && remoteStreams.size > 0) {
       remoteStreams.forEach((stream, userId) => {
         const audioTracks = stream.getAudioTracks();
@@ -213,7 +199,7 @@ function startRecording() {
     
     console.log(`[Recording] Total audio tracks: ${audioCount}`);
     
-    // ===== BƯỚC 6: KẾT HỢP VIDEO VÀ AUDIO =====
+    // KẾT HỢP VIDEO VÀ AUDIO =====
     const finalStream = new MediaStream();
     
     // Thêm video track từ canvas
@@ -232,13 +218,11 @@ function startRecording() {
       console.warn('[Recording] No audio tracks available');
     }
     
-    // ===== BƯỚC 7: TẠO MEDIARECORDER =====
     const options = { 
       mimeType: 'video/webm;codecs=vp8,opus',
       videoBitsPerSecond: 2500000 // 2.5 Mbps
     };
     
-    // Kiểm tra codec hỗ trợ
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
       options.mimeType = 'video/webm';
       console.warn('[Recording] VP8 not supported, using default codec');
@@ -327,7 +311,7 @@ function startRecording() {
     
     console.log('[Recording] Started successfully!');
     
-    // ✅ Thông báo chi tiết
+    //  Thông báo chi tiết
     const videoDetails = videoElements.map(v => `• ${v.label} (${v.type})`).join('\n');
     alert(`🎥 Bắt đầu ghi hình!\n\n${videoElements.length} video streams:\n${videoDetails}\n\n${audioCount} audio tracks\nĐộ phân giải: 1920x1080\nFPS: 30`);
     

@@ -66,7 +66,7 @@ function setupSocketHandlers() {
     updateParticipantCount(); // ← CẬP NHẬT KHI CÓ NGƯỜI LEAVE
   });
 
-  // ✅ THÊM: Listen for room closed event when owner leaves
+  //  Listen for room closed event when owner leaves
   socket.on('room_closed', ({ reason }) => {
     console.log(`[Room] Room closed: ${reason}`);
     alert(`Phòng đã đóng. Lý do: ${reason || 'Người tạo phòng đã rời đi'}`);
@@ -112,7 +112,7 @@ function setupSocketHandlers() {
       console.log(`[Offer] Setting remote description from ${fromId}`);
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       
-      // ✅ XỬ LÝ PENDING ICE CANDIDATES NGAY SAU KHI SET REMOTE DESCRIPTION
+      //  XỬ LÝ PENDING ICE CANDIDATES NGAY SAU KHI SET REMOTE DESCRIPTION
       const pendingCandidates = pendingIceCandidates.get(fromId);
       if (pendingCandidates && pendingCandidates.length > 0) {
         console.log(`[ICE] Processing ${pendingCandidates.length} queued candidates for ${fromId}`);
@@ -150,7 +150,7 @@ function setupSocketHandlers() {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       console.log(`[Answer] Applied from ${fromId}`);
       
-      // ✅ XỬ LÝ PENDING ICE CANDIDATES SAU KHI NHẬN ANSWER
+      //  XỬ LÝ PENDING ICE CANDIDATES SAU KHI NHẬN ANSWER
       const pendingCandidates = pendingIceCandidates.get(fromId);
       if (pendingCandidates && pendingCandidates.length > 0) {
         console.log(`[ICE] Processing ${pendingCandidates.length} queued candidates for ${fromId}`);
@@ -179,11 +179,11 @@ function setupSocketHandlers() {
       }
 
       if (pc.remoteDescription) {
-        // ✅ CÓ REMOTE DESCRIPTION → THÊM NGAY
+        //  CÓ REMOTE DESCRIPTION → THÊM NGAY
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
         console.log(`[ICE] Added candidate from ${fromId}`);
       } else {
-        // ⏳ CHƯA CÓ REMOTE DESCRIPTION → QUEUE LẠI
+        //  CHƯA CÓ REMOTE DESCRIPTION → QUEUE LẠI
         if (!pendingIceCandidates.has(fromId)) {
           pendingIceCandidates.set(fromId, []);
         }
@@ -210,7 +210,6 @@ function setupSocketHandlers() {
     const isSelf = from === socket.id;
     const senderName = isSelf ? (currentUser?.username || 'Tôi') : (usernameFrom || userNames.get(from) || `User ${String(from).slice(0,6)}`);
     
-    // ✅ ADD BADGE for received private message
     if (!isSelf) {
       appendChatMessage(text || '', senderName, ts || Date.now(), false, {
         type: 'private',
@@ -229,7 +228,6 @@ function setupSocketHandlers() {
     const isSelf = from === socket.id;
     const senderName = isSelf ? (currentUser?.username || 'Tôi') : (username || userNames.get(from) || `User ${String(from).slice(0,6)}`);
     
-    // ✅ ADD BADGE for group message
     if (!isSelf) {
       appendChatMessage(text || '', senderName, ts || Date.now(), false, {
         type: 'group',
@@ -282,7 +280,6 @@ function setupSocketHandlers() {
   // ===== Screen Share Events =====
   socket.on('screen_share_stopped', ({ userId }) => {
     console.log(`[ScreenShare] ${userId} stopped sharing screen`);
-    // ✅ SỬA: Gọi hàm từ webrtc.js thay vì screen-share.handlers.js
     removeRemoteScreenTileFromServer(userId);
   });
 }
